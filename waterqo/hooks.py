@@ -83,7 +83,8 @@ app_license = "mit"
 # ------------
 
 # before_install = "waterqo.install.before_install"
-# after_install = "waterqo.install.after_install"
+after_install = "waterqo.setup.setup_project_task_budget_control"
+after_migrate = "waterqo.setup.setup_project_task_budget_control"
 
 # Uninstallation
 # ------------
@@ -137,13 +138,27 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Project": {
+		"validate": "waterqo.budget_control.project.validate_project"
+	},
+	"Task": {
+		"autoname": "waterqo.budget_control.task.autoname_task",
+		"validate": "waterqo.budget_control.task.validate_task",
+		"on_update": "waterqo.budget_control.task.on_update_task",
+		"on_trash": "waterqo.budget_control.task.on_trash_task"
+	},
+	"Stock Entry": {
+		"validate": "waterqo.budget_control.stock_entry.validate_stock_entry",
+		"on_submit": "waterqo.budget_control.stock_entry.on_submit_stock_entry",
+		"on_cancel": "waterqo.budget_control.stock_entry.on_cancel_stock_entry"
+	},
+	"Journal Entry": {
+		"validate": "waterqo.budget_control.journal_entry.validate_journal_entry",
+		"on_submit": "waterqo.budget_control.journal_entry.on_submit_journal_entry",
+		"on_cancel": "waterqo.budget_control.journal_entry.on_cancel_journal_entry"
+	}
+}
 
 # Scheduled Tasks
 # ---------------
