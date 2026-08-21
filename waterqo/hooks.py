@@ -43,7 +43,10 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+	"Employee": "public/js/employee.js"
+}
+
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -139,6 +142,9 @@ after_migrate = "waterqo.setup.setup_project_task_budget_control"
 # Hook on document methods and events
 
 doc_events = {
+	"Employee": {
+		"validate": "waterqo.employee.validate_employee"
+	},
 	"Project": {
 		"validate": "waterqo.budget_control.project.validate_project"
 	},

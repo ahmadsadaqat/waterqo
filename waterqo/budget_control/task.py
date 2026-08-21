@@ -42,6 +42,13 @@ def autoname_task(doc, method=None):
 
 def validate_task(doc, method=None):
 	"""Enforces Project assignment, Parent Task hierarchy, and Task Budget allocation rules."""
+	if doc.name and frappe.db.exists("Task", doc.name):
+		doc._previous_parent_task = frappe.db.get_value("Task", doc.name, "parent_task")
+		doc._previous_project = frappe.db.get_value("Task", doc.name, "project")
+	else:
+		doc._previous_parent_task = None
+		doc._previous_project = None
+
 	# Rule 1 — Inherit/validate Project from Parent Task
 	if doc.parent_task:
 		parent_proj = frappe.db.get_value("Task", doc.parent_task, "project")
@@ -52,6 +59,7 @@ def validate_task(doc, method=None):
 				_("Task Project '{0}' does not match Parent Task Project '{1}'.").format(doc.project, parent_proj),
 				title=_("Project Mismatch"),
 			)
+
 
 	# Parent Tasks: compute budget from children if group or has children
 	has_children = False
@@ -130,14 +138,28 @@ def validate_task(doc, method=None):
 
 def on_update_task(doc, method=None):
 	"""Triggers parent task and project budget updates after Task is saved."""
+	# Recalculate current parent task
 	if doc.parent_task:
 		recalculate_task_budget(doc.parent_task, update_parents=True)
+
+	# Check if parent_task changed to update previous parent task
+	prev_parent = getattr(doc, "_previous_parent_task", None)
+	if prev_parent and prev_parent != doc.parent_task:
+		recalculate_task_budget(prev_parent, update_parents=True)
+
+	prev_project = getattr(doc, "_previous_project", None)
+	if prev_project and prev_project != doc.project:
+		recalculate_project_budget(prev_project)
+
 	if doc.project:
 		recalculate_project_budget(doc.project)
+
 
 def on_trash_task(doc, method=None):
 	"""Triggers parent task and project budget updates after Task is deleted."""
 	if doc.parent_task:
-		recalculate_task_budget(doc.parent_task, update_parents=True)
+		recalculate_task_budget(doc.parent_task, update_parents=True, excluding_task=doc.name)
 	if doc.project:
-		recalculate_project_budget(doc.project)
+		recalculate_project_budget(doc.project, excluding_task=doc.name)
+
+

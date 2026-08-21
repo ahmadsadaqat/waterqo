@@ -135,6 +135,36 @@ def setup_custom_fields():
 				"depends_on": "eval:doc.custom_allow_budget_override == 1",
 			},
 		],
+		"Employee": [
+			{
+				"fieldname": "custom_cnic_section",
+				"fieldtype": "Section Break",
+				"label": "CNIC Details",
+				"insert_after": "personal_details",
+			},
+			{
+				"fieldname": "custom_cnic",
+				"fieldtype": "Data",
+				"label": "CNIC Number",
+				"insert_after": "custom_cnic_section",
+				"description": "13-digit National Identity Card Number (e.g., 12345-1234567-1)",
+			},
+			{
+				"fieldname": "custom_allow_cnic_override",
+				"fieldtype": "Check",
+				"label": "Allow CNIC Override",
+				"insert_after": "custom_cnic",
+				"description": "Bypass CNIC format and duplicate validation checks",
+			},
+			{
+				"fieldname": "custom_cnic_override_reason",
+				"fieldtype": "Small Text",
+				"label": "CNIC Override Reason",
+				"insert_after": "custom_allow_cnic_override",
+				"depends_on": "eval:doc.custom_allow_cnic_override == 1",
+				"mandatory_depends_on": "eval:doc.custom_allow_cnic_override == 1",
+			},
+		],
 	}
 
 	create_custom_fields(custom_fields, ignore_validate=True)
