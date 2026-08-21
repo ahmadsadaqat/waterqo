@@ -129,6 +129,28 @@ def validate_task(doc, method=None):
 				title=_("Task Budget Exceeded"),
 			)
 
+	# Auto-complete if all dependencies and child tasks are completed
+	prereq_names = [d.task for d in (doc.depends_on or []) if d.task]
+	if doc.name and frappe.db.exists("Task", doc.name):
+		child_names = frappe.db.get_all(
+			"Task",
+			filters={"parent_task": doc.name, "docstatus": ["<", 2], "name": ["!=", doc.name]},
+			pluck="name",
+		)
+		prereq_names.extend(child_names)
+
+	if prereq_names:
+		prereq_statuses = frappe.db.get_all(
+			"Task",
+			filters={"name": ["in", list(set(prereq_names))], "docstatus": ["<", 2]},
+			fields=["name", "status", "progress"],
+		)
+		if prereq_statuses and all(s.status in ("Completed", "Cancelled") for s in prereq_statuses):
+			if doc.status not in ("Completed", "Cancelled", "Template"):
+				doc.status = "Completed"
+				doc.progress = 100
+				doc.completed_on = doc.completed_on or frappe.utils.today()
+
 	actual_cost = get_task_actual_cost(doc.name) if doc.name else 0.0
 	doc.custom_actual_task_cost = actual_cost
 	doc.custom_remaining_task_budget = flt(doc.custom_task_budget) - actual_cost
@@ -137,12 +159,11 @@ def validate_task(doc, method=None):
 	)
 
 def on_update_task(doc, method=None):
-	"""Triggers parent task and project budget updates after Task is saved."""
-	# Recalculate current parent task
+	"""Triggers parent task, project budget, and dependency status updates after Task is saved."""
+	# 1. Budget updates
 	if doc.parent_task:
 		recalculate_task_budget(doc.parent_task, update_parents=True)
 
-	# Check if parent_task changed to update previous parent task
 	prev_parent = getattr(doc, "_previous_parent_task", None)
 	if prev_parent and prev_parent != doc.parent_task:
 		recalculate_task_budget(prev_parent, update_parents=True)
@@ -154,12 +175,141 @@ def on_update_task(doc, method=None):
 	if doc.project:
 		recalculate_project_budget(doc.project)
 
+	# 2. Dependency status propagation
+	if not getattr(frappe.flags, "in_task_dependency_update", False):
+		frappe.flags.in_task_dependency_update = True
+		try:
+			propagate_task_status_to_dependents(doc.name)
+		finally:
+			frappe.flags.in_task_dependency_update = False
 
 def on_trash_task(doc, method=None):
-	"""Triggers parent task and project budget updates after Task is deleted."""
+	"""Triggers parent task, project budget, and dependency status updates after Task is deleted."""
 	if doc.parent_task:
 		recalculate_task_budget(doc.parent_task, update_parents=True, excluding_task=doc.name)
 	if doc.project:
 		recalculate_project_budget(doc.project, excluding_task=doc.name)
+
+	if not getattr(frappe.flags, "in_task_dependency_update", False):
+		frappe.flags.in_task_dependency_update = True
+		try:
+			propagate_task_status_to_dependents(doc.name, excluding_task=doc.name)
+		finally:
+			frappe.flags.in_task_dependency_update = False
+
+def check_and_update_task_status_from_dependencies(target_name: str, visited: set | None = None, excluding_task: str | None = None):
+	"""Checks all prerequisites (depends_on table + child tasks) for target_name and updates its status accordingly."""
+	if not target_name or not frappe.db.exists("Task", target_name):
+		return
+
+	if visited is None:
+		visited = set()
+
+	if target_name in visited:
+		return
+	visited.add(target_name)
+
+	# Get all dependency tasks from depends_on child table
+	dep_filters = {"parent": target_name, "parenttype": "Task"}
+	if excluding_task:
+		dep_filters["task"] = ["!=", excluding_task]
+
+	prerequisite_tasks = frappe.db.get_all(
+		"Task Depends On",
+		filters=dep_filters,
+		pluck="task",
+		distinct=True,
+	)
+
+	# Get all child tasks if target is a parent/group task
+	child_filters = {"parent_task": target_name, "docstatus": ["<", 2], "name": ["!=", target_name]}
+	if excluding_task:
+		child_filters["name"] = ["not in", [target_name, excluding_task]]
+
+	child_tasks = frappe.db.get_all(
+		"Task",
+		filters=child_filters,
+		pluck="name",
+		distinct=True,
+	)
+
+	all_prereq_names = set(prerequisite_tasks + child_tasks)
+	if not all_prereq_names:
+		return
+
+	prereq_tasks_data = frappe.db.get_all(
+		"Task",
+		filters={"name": ["in", list(all_prereq_names)], "docstatus": ["<", 2]},
+		fields=["name", "status", "progress"],
+	)
+
+	if not prereq_tasks_data:
+		return
+
+	all_completed = all(t.status in ("Completed", "Cancelled") for t in prereq_tasks_data)
+	any_working = any(t.status in ("Working", "Completed") for t in prereq_tasks_data)
+
+	target_doc = frappe.get_doc("Task", target_name)
+	updated = False
+
+	if all_completed:
+		if target_doc.status != "Completed":
+			target_doc.status = "Completed"
+			target_doc.progress = 100
+			target_doc.completed_on = target_doc.completed_on or frappe.utils.today()
+			target_doc.save(ignore_permissions=True)
+			updated = True
+	else:
+		# If previously completed but a prerequisite is no longer completed/cancelled
+		if target_doc.status == "Completed":
+			target_doc.status = "Working" if any_working else "Open"
+			target_doc.completed_on = None
+			avg_progress = sum(flt(t.progress) for t in prereq_tasks_data) / len(prereq_tasks_data)
+			target_doc.progress = avg_progress
+			target_doc.save(ignore_permissions=True)
+			updated = True
+
+	if updated:
+		# Recursively propagate to any tasks that depend on target_name
+		propagate_task_status_to_dependents(target_name, visited=visited)
+
+def propagate_task_status_to_dependents(task_name: str, visited: set | None = None, excluding_task: str | None = None):
+	"""Finds tasks that depend on task_name or are parents of task_name, and updates their status."""
+	if not task_name:
+		return
+
+	# 1. Tasks where task_name is listed in depends_on
+	dependent_tasks = frappe.db.get_all(
+		"Task Depends On",
+		filters={"task": task_name, "parenttype": "Task"},
+		pluck="parent",
+		distinct=True,
+	)
+
+	# 2. Parent task if task_name is a child task
+	parent_task = frappe.db.get_value("Task", task_name, "parent_task")
+	if parent_task and parent_task not in dependent_tasks:
+		dependent_tasks.append(parent_task)
+
+	for target_name in dependent_tasks:
+		check_and_update_task_status_from_dependencies(target_name, visited=visited, excluding_task=excluding_task)
+
+def sync_all_task_dependency_statuses():
+	"""Syncs statuses for all tasks that have dependencies or child tasks."""
+	all_parents = frappe.db.get_all(
+		"Task Depends On",
+		filters={"parenttype": "Task"},
+		pluck="parent",
+		distinct=True,
+	)
+	all_group_tasks = frappe.db.get_all(
+		"Task",
+		filters={"is_group": 1, "docstatus": ["<", 2]},
+		pluck="name",
+	)
+	tasks_to_sync = set(all_parents + all_group_tasks)
+	for task_name in tasks_to_sync:
+		check_and_update_task_status_from_dependencies(task_name)
+
 
 

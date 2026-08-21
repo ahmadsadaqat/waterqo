@@ -5,7 +5,10 @@ def setup_project_task_budget_control():
 	"""Sets up custom fields and accounting dimensions required for Project & Task Budget Control."""
 	setup_custom_fields()
 	setup_task_accounting_dimension()
+	from waterqo.budget_control.task import sync_all_task_dependency_statuses
+	sync_all_task_dependency_statuses()
 	frappe.clear_cache()
+
 
 def setup_custom_fields():
 	custom_fields = {
