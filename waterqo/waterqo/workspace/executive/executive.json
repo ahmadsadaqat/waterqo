@@ -1,0 +1,95 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"kpi_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Executive CEO Overview</b></span>\",\"col\":12}},{\"id\":\"ceo_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"CEO Executive Dashboard\",\"col\":4}},{\"id\":\"proj_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Projects\",\"col\":4}},{\"id\":\"sinv_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoices\",\"col\":4}}]",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "dashboard",
+ "idx": 1,
+ "is_hidden": 0,
+ "label": "Executive",
+ "links": [
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Executive Overview",
+   "link_count": 0,
+   "onboard": 1,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "CEO Executive Dashboard",
+   "link_count": 0,
+   "link_to": "waterqo-ceo-dashboard",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Projects Portfolio",
+   "link_count": 0,
+   "link_to": "Project",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Financial Accounts",
+   "link_count": 0,
+   "link_to": "Sales Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "module": "Waterqo",
+ "name": "Executive",
+ "public": 1,
+ "roles": [
+  {
+   "role": "CEO"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "docstatus": 0,
+   "icon": "fa fa-dashboard",
+   "label": "CEO Executive Dashboard",
+   "link_to": "waterqo-ceo-dashboard",
+   "type": "Page"
+  },
+  {
+   "color": "Purple",
+   "docstatus": 0,
+   "icon": "fa fa-tasks",
+   "label": "Projects",
+   "link_to": "Project",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "docstatus": 0,
+   "icon": "fa fa-file-text-o",
+   "label": "Sales Invoices",
+   "link_to": "Sales Invoice",
+   "type": "DocType"
+  }
+ ],
+ "title": "Executive"
+}

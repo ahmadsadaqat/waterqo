@@ -1,10 +1,12 @@
 import frappe
+import frappe.permissions
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 def setup_project_task_budget_control():
-	"""Sets up custom fields and accounting dimensions required for Project & Task Budget Control."""
+	"""Sets up custom fields, accounting dimensions, and CEO dashboard roles/permissions."""
 	setup_custom_fields()
 	setup_task_accounting_dimension()
+	setup_ceo_role_and_permissions()
 	from waterqo.budget_control.task import sync_all_task_dependency_statuses
 	sync_all_task_dependency_statuses()
 	frappe.clear_cache()
@@ -185,3 +187,45 @@ def setup_task_accounting_dimension():
 	doc = frappe.get_doc("Accounting Dimension", {"document_type": "Task"})
 	from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import make_dimension_in_accounting_doctypes
 	make_dimension_in_accounting_doctypes(doc)
+
+
+def setup_ceo_role_and_permissions():
+	"""Ensures CEO role exists with desk access and has necessary read permissions for executive data."""
+	# 1. Create/ensure CEO role
+	if not frappe.db.exists("Role", "CEO"):
+		ceo_role = frappe.new_doc("Role")
+		ceo_role.role_name = "CEO"
+		ceo_role.desk_access = 1
+		ceo_role.insert(ignore_permissions=True)
+	else:
+		frappe.db.set_value("Role", "CEO", "desk_access", 1, update_modified=False)
+
+	# 2. Grant read permissions to CEO role for necessary DocTypes
+	doctypes_to_grant = [
+		"Sales Invoice",
+		"Purchase Invoice",
+		"Project",
+		"Task",
+		"Employee",
+		"Attendance",
+		"Account",
+		"GL Entry",
+		"Stock Entry",
+		"Journal Entry",
+		"Company",
+	]
+
+	for dt in doctypes_to_grant:
+		if frappe.db.exists("DocType", dt):
+			try:
+				if not frappe.db.exists("Custom DocPerm", {"parent": dt, "role": "CEO"}):
+					frappe.permissions.add_permission(dt, "CEO", 0)
+			except Exception as e:
+				frappe.log_error(f"Error adding CEO permission on {dt}: {e}", "Waterqo Setup")
+
+	# 3. Reload Executive workspace & Page fixtures
+	try:
+		frappe.reload_doc("waterqo", "page", "waterqo_ceo_dashboard")
+		frappe.reload_doc("waterqo", "workspace", "executive")
+	except Exception as e:
+		frappe.log_error(f"Error reloading executive fixtures: {e}", "Waterqo Setup")
