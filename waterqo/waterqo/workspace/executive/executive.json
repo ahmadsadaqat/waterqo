@@ -1,6 +1,7 @@
 {
  "charts": [],
- "content": "[{\"id\":\"kpi_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Executive CEO Overview</b></span>\",\"col\":12}},{\"id\":\"ceo_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"CEO Executive Dashboard\",\"col\":4}},{\"id\":\"proj_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Projects\",\"col\":4}},{\"id\":\"sinv_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoices\",\"col\":4}}]",
+ "content": "[{\"id\":\"kpi_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Executive CEO Overview</b></span>\",\"col\":12}},{\"id\":\"ceo_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"CEO Executive Dashboard\",\"col\":3}},{\"id\":\"accounts_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Accounts Dashboard\",\"col\":3}},{\"id\":\"buying_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Buying Dashboard\",\"col\":3}},{\"id\":\"stock_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Dashboard\",\"col\":3}},{\"id\":\"project_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Dashboard\",\"col\":3}},{\"id\":\"payroll_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Payroll Dashboard\",\"col\":3}},{\"id\":\"attendance_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Attendance Dashboard\",\"col\":3}},{\"id\":\"expense_claims_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Expense Claims Dashboard\",\"col\":3}},{\"id\":\"selling_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Selling Dashboard\",\"col\":3}},{\"id\":\"project_expense_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Expense Tracking\",\"col\":3}},{\"id\":\"spacer_reports\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"reports_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports</b></span>\",\"col\":12}},{\"id\":\"financial_statements_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Financial Statements\",\"col\":4}},{\"id\":\"ledgers_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Ledgers\",\"col\":4}},{\"id\":\"reports_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}}]",
+ "creation": "2026-09-04 15:49:36.676764",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -15,30 +16,42 @@
    "dependencies": "",
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Executive Overview",
+   "label": "Financial Statements",
    "link_count": 0,
+   "link_type": "DocType",
    "onboard": 1,
    "type": "Card Break"
   },
   {
    "dependencies": "",
    "hidden": 0,
-   "is_query_report": 0,
-   "label": "CEO Executive Dashboard",
+   "is_query_report": 1,
+   "label": "Profit and Loss Statement",
    "link_count": 0,
-   "link_to": "waterqo-ceo-dashboard",
-   "link_type": "Page",
-   "onboard": 1,
+   "link_to": "Profit and Loss Statement",
+   "link_type": "Report",
+   "onboard": 0,
    "type": "Link"
   },
   {
    "dependencies": "",
    "hidden": 0,
-   "is_query_report": 0,
-   "label": "Projects Portfolio",
+   "is_query_report": 1,
+   "label": "Balance Sheet",
    "link_count": 0,
-   "link_to": "Project",
-   "link_type": "DocType",
+   "link_to": "Balance Sheet",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Cash Flow",
+   "link_count": 0,
+   "link_to": "Cash Flow",
+   "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   },
@@ -46,17 +59,119 @@
    "dependencies": "",
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Financial Accounts",
+   "label": "Ledgers",
    "link_count": 0,
-   "link_to": "Sales Invoice",
    "link_type": "DocType",
+   "onboard": 1,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "General Ledger",
+   "link_count": 0,
+   "link_to": "General Ledger",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Customer Ledger Summary",
+   "link_count": 0,
+   "link_to": "Customer Ledger Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Supplier Ledger Summary",
+   "link_count": 0,
+   "link_to": "Supplier Ledger Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Stock Ledger",
+   "link_count": 0,
+   "link_to": "Stock Ledger",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Stock Balance",
+   "link_count": 0,
+   "link_to": "Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Accounts Receivable",
+   "link_count": 0,
+   "link_to": "Accounts Receivable",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Accounts Payable",
+   "link_count": 0,
+   "link_to": "Accounts Payable",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Project Expense Tracking",
+   "link_count": 0,
+   "link_to": "Project Expense Tracking",
+   "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   }
  ],
+ "modified": "2026-09-04 16:48:24.912436",
+ "modified_by": "Administrator",
  "module": "Waterqo",
  "name": "Executive",
+ "number_cards": [],
+ "owner": "Administrator",
  "public": 1,
+ "quick_lists": [],
  "roles": [
   {
    "role": "CEO"
@@ -65,30 +180,88 @@
    "role": "System Manager"
   }
  ],
+ "sequence_id": 0.0,
  "shortcuts": [
   {
    "color": "Blue",
-   "docstatus": 0,
+   "doc_view": "",
    "icon": "fa fa-dashboard",
    "label": "CEO Executive Dashboard",
    "link_to": "waterqo-ceo-dashboard",
    "type": "Page"
   },
   {
-   "color": "Purple",
-   "docstatus": 0,
-   "icon": "fa fa-tasks",
-   "label": "Projects",
-   "link_to": "Project",
-   "type": "DocType"
+   "color": "Green",
+   "doc_view": "",
+   "icon": "fa fa-calculator",
+   "label": "Accounts Dashboard",
+   "link_to": "Accounts",
+   "type": "Dashboard"
   },
   {
-   "color": "Green",
-   "docstatus": 0,
-   "icon": "fa fa-file-text-o",
-   "label": "Sales Invoices",
-   "link_to": "Sales Invoice",
-   "type": "DocType"
+   "color": "Orange",
+   "doc_view": "",
+   "icon": "fa fa-shopping-cart",
+   "label": "Buying Dashboard",
+   "link_to": "Buying",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "",
+   "icon": "fa fa-archive",
+   "label": "Stock Dashboard",
+   "link_to": "Stock",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Cyan",
+   "doc_view": "",
+   "icon": "fa fa-tasks",
+   "label": "Project Dashboard",
+   "link_to": "Project",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Red",
+   "doc_view": "",
+   "icon": "fa fa-money",
+   "label": "Payroll Dashboard",
+   "link_to": "Payroll",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Yellow",
+   "doc_view": "",
+   "icon": "fa fa-clock-o",
+   "label": "Attendance Dashboard",
+   "link_to": "Attendance",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Dark",
+   "doc_view": "",
+   "icon": "fa fa-reply-all",
+   "label": "Expense Claims Dashboard",
+   "link_to": "Expense Claims",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "icon": "fa fa-line-chart",
+   "label": "Selling Dashboard",
+   "link_to": "Selling",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Pink",
+   "doc_view": "",
+   "icon": "fa fa-area-chart",
+   "label": "Project Expense Tracking",
+   "link_to": "Project Expense Tracking",
+   "report_ref_doctype": "Project",
+   "type": "Report"
   }
  ],
  "title": "Executive"
