@@ -16,6 +16,13 @@ def setup_custom_fields():
 	custom_fields = {
 		"Project": [
 			{
+				"fieldname": "custom_opening_expense",
+				"fieldtype": "Currency",
+				"label": "Opening Expense",
+				"insert_after": "total_expense_claim",
+				"description": "Opening expense for reporting purposes",
+			},
+			{
 				"fieldname": "custom_budget_section",
 				"fieldtype": "Section Break",
 				"label": "Budget Control",

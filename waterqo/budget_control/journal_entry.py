@@ -41,8 +41,17 @@ def check_journal_entry_budgets(doc):
 
 	# Validate Task Budgets
 	for tsk, cost in task_costs.items():
-		task_proj = frappe.db.get_value("Task", tsk, "project")
-		task_remaining = flt(frappe.db.get_value("Task", tsk, "custom_remaining_task_budget"))
+		task_data = frappe.db.get_value(
+			"Task",
+			tsk,
+			["custom_task_budget", "custom_remaining_task_budget", "project"],
+			as_dict=True,
+		)
+		if not task_data or flt(task_data.custom_task_budget) <= 0:
+			continue
+
+		task_proj = task_data.project
+		task_remaining = flt(task_data.custom_remaining_task_budget)
 
 		if cost > task_remaining:
 			excess = cost - task_remaining
@@ -66,11 +75,20 @@ def check_journal_entry_budgets(doc):
 
 	# Validate Project Budgets
 	for proj, total_cost in project_costs.items():
-		proj_remaining = flt(frappe.db.get_value("Project", proj, "custom_remaining_project_budget"))
+		proj_data = frappe.db.get_value(
+			"Project",
+			proj,
+			["custom_project_budget", "custom_remaining_project_budget", "company"],
+			as_dict=True,
+		)
+		if not proj_data or flt(proj_data.custom_project_budget) <= 0:
+			continue
+
+		proj_remaining = flt(proj_data.custom_remaining_project_budget)
 
 		if total_cost > proj_remaining:
 			excess = total_cost - proj_remaining
-			company = frappe.db.get_value("Project", proj, "company") or doc.company
+			company = proj_data.company or doc.company
 			currency = frappe.db.get_value("Company", company, "default_currency") if company else (frappe.db.get_default("currency") or "")
 
 			frappe.throw(

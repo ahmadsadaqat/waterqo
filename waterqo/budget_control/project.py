@@ -13,7 +13,7 @@ def validate_project(doc, method=None):
 		total_task_budget = 0.0
 
 	# Section 5: Check if Project Budget is reduced below allocated Task Budgets
-	if project_budget < total_task_budget:
+	if project_budget > 0 and project_budget < total_task_budget:
 		currency = frappe.db.get_value("Company", doc.company, "default_currency") if doc.company else (frappe.db.get_default("currency") or "")
 		frappe.throw(
 			_(

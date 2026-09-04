@@ -340,3 +340,63 @@ class TestProjectTaskBudgetControl(unittest.TestCase):
 		self.assertEqual(flt(proj.custom_actual_project_cost), 0.0)
 		self.assertEqual(flt(proj.custom_remaining_project_budget), 500000.0)
 
+	def test_06_zero_budget_bypass(self):
+		"""41: Unbudgeted / zero budget Project and Task do not block Journal Entry or Stock Entry."""
+		proj = frappe.new_doc("Project")
+		proj.project_name = "_Test Zero Budget Proj " + random_string(4)
+		proj.company = self.company
+		proj.custom_project_budget = 0.0
+		proj.insert(ignore_permissions=True)
+
+		task = frappe.new_doc("Task")
+		task.subject = "Zero Budget Task"
+		task.project = proj.name
+		task.custom_task_budget = 0.0
+		task.insert(ignore_permissions=True)
+
+		# Journal Entry should pass without 'Project Budget Exceeded'
+		credit_account = frappe.db.get_value("Company", self.company, "default_bank_account") or frappe.get_all("Account", filters={"company": self.company, "account_type": "Bank"})[0].name
+		cost_center = frappe.db.get_value("Company", self.company, "cost_center") or frappe.get_all("Cost Center", filters={"company": self.company})[0].name
+
+		je = frappe.new_doc("Journal Entry")
+		je.company = self.company
+		je.posting_date = nowdate()
+		je.append("accounts", {
+			"account": self.expense_account,
+			"debit_in_account_currency": 1000.0,
+			"credit_in_account_currency": 0.0,
+			"project": proj.name,
+			"task": task.name,
+			"cost_center": cost_center,
+		})
+		je.append("accounts", {
+			"account": credit_account,
+			"debit_in_account_currency": 0.0,
+			"credit_in_account_currency": 1000.0,
+			"cost_center": cost_center,
+		})
+		je.insert(ignore_permissions=True)
+		je.submit()
+
+		# Stock Entry Material Issue should pass without 'Project Budget Exceeded'
+		se = frappe.new_doc("Stock Entry")
+		se.purpose = "Material Issue"
+		se.stock_entry_type = "Material Issue"
+		se.company = self.company
+		se.append("items", {
+			"item_code": self.item_code,
+			"s_warehouse": self.source_wh,
+			"qty": 1,
+			"basic_rate": 1000.0,
+			"cost_center": cost_center,
+			"project": proj.name,
+			"task": task.name,
+		})
+		se.insert(ignore_permissions=True)
+		se.submit()
+
+		# Verify Project can be saved without violation
+		proj.reload()
+		proj.save(ignore_permissions=True)
+
+
