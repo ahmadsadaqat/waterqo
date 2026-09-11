@@ -515,3 +515,328 @@ def get_hrms_attendance_summary(company=None):
 			],
 		},
 	}
+
+
+@frappe.whitelist()
+def get_bank_current_balances_and_reconciliation(company=None):
+	"""
+	Returns:
+	1. Bank-wise current balance: list of bank child/final ledgers with balances, currency, company, share %.
+	2. Bank reconciliation status: cleared vs uncleared counts & amounts from Payment Entry & Journal Entry,
+	   plus Bank Transaction reconciliation summary if present.
+	"""
+	_check_dashboard_permissions()
+	comp = _get_active_company(company)
+
+	# 1. Fetch all Bank Child / Final Ledgers
+	bank_accounts = frappe.db.sql(
+		"""
+		SELECT
+			acc.name as account,
+			acc.account_name,
+			acc.account_currency,
+			acc.company,
+			acc.parent_account,
+			COALESCE(SUM(gle.debit - gle.credit), 0) as current_balance,
+			COALESCE(SUM(gle.debit), 0) as total_debit,
+			COALESCE(SUM(gle.credit), 0) as total_credit
+		FROM `tabAccount` acc
+		LEFT JOIN `tabGL Entry` gle ON gle.account = acc.name
+			AND gle.docstatus = 1
+			AND gle.is_cancelled = 0
+		WHERE acc.account_type = 'Bank'
+		  AND acc.is_group = 0
+		  AND (%(company)s IS NULL OR acc.company = %(company)s)
+		GROUP BY acc.name, acc.account_name, acc.account_currency, acc.company, acc.parent_account
+		ORDER BY current_balance DESC, acc.name ASC
+	""",
+		{"company": comp},
+		as_dict=True,
+	)
+
+	total_positive_balance = sum(flt(b.current_balance) for b in bank_accounts if flt(b.current_balance) > 0)
+	net_bank_balance = sum(flt(b.current_balance) for b in bank_accounts)
+
+	# Fetch linked Bank Account doctype records if any exist
+	bank_meta = {}
+	if frappe.db.table_exists("Bank Account"):
+		acc_names = [b.account for b in bank_accounts]
+		if acc_names:
+			ba_records = frappe.db.get_all(
+				"Bank Account",
+				filters={"account": ["in", acc_names]},
+				fields=["name", "bank", "account", "bank_account_no", "is_company_account"],
+			)
+			for ba in ba_records:
+				bank_meta[ba.account] = ba
+
+	for b in bank_accounts:
+		b.current_balance = flt(b.current_balance, 2)
+		b.total_debit = flt(b.total_debit, 2)
+		b.total_credit = flt(b.total_credit, 2)
+		b.share_pct = (
+			flt((b.current_balance / total_positive_balance * 100), 1)
+			if total_positive_balance > 0 and b.current_balance > 0
+			else 0.0
+		)
+		b_extra = bank_meta.get(b.account)
+		b.bank_name = b_extra.bank if b_extra and b_extra.bank else b.account_name
+		b.bank_account_no = b_extra.bank_account_no if b_extra and b_extra.bank_account_no else ""
+
+	# 2. Bank Reconciliation Status
+	acc_tuple = tuple(b.account for b in bank_accounts) if bank_accounts else ("",)
+
+	# A. Payment Entry clearance
+	pe_stats = frappe.db.sql(
+		"""
+		SELECT
+			COUNT(name) as total_count,
+			SUM(CASE WHEN clearance_date IS NOT NULL THEN 1 ELSE 0 END) as cleared_count,
+			SUM(CASE WHEN clearance_date IS NULL THEN 1 ELSE 0 END) as uncleared_count,
+			SUM(CASE WHEN clearance_date IS NOT NULL THEN base_paid_amount ELSE 0 END) as cleared_paid,
+			SUM(CASE WHEN clearance_date IS NOT NULL THEN base_received_amount ELSE 0 END) as cleared_received,
+			SUM(CASE WHEN clearance_date IS NULL AND paid_from IN %(accounts)s THEN base_paid_amount ELSE 0 END) as uncleared_payments,
+			SUM(CASE WHEN clearance_date IS NULL AND paid_to IN %(accounts)s THEN base_received_amount ELSE 0 END) as uncleared_receipts
+		FROM `tabPayment Entry`
+		WHERE docstatus = 1
+		  AND (paid_from IN %(accounts)s OR paid_to IN %(accounts)s)
+		  AND (%(company)s IS NULL OR company = %(company)s)
+	""",
+		{"accounts": acc_tuple, "company": comp},
+		as_dict=True,
+	)
+	pe_row = pe_stats[0] if pe_stats else {}
+
+	# B. Journal Entry clearance
+	je_stats = frappe.db.sql(
+		"""
+		SELECT
+			COUNT(DISTINCT jv.name) as total_count,
+			SUM(CASE WHEN jv.clearance_date IS NOT NULL THEN 1 ELSE 0 END) as cleared_count,
+			SUM(CASE WHEN jv.clearance_date IS NULL THEN 1 ELSE 0 END) as uncleared_count,
+			SUM(CASE WHEN jv.clearance_date IS NULL AND jvd.credit > 0 THEN jvd.credit ELSE 0 END) as uncleared_payments,
+			SUM(CASE WHEN jv.clearance_date IS NULL AND jvd.debit > 0 THEN jvd.debit ELSE 0 END) as uncleared_receipts
+		FROM `tabJournal Entry Account` jvd
+		INNER JOIN `tabJournal Entry` jv ON jv.name = jvd.parent
+		WHERE jv.docstatus = 1
+		  AND jvd.account IN %(accounts)s
+		  AND (%(company)s IS NULL OR jv.company = %(company)s)
+	""",
+		{"accounts": acc_tuple, "company": comp},
+		as_dict=True,
+	)
+	je_row = je_stats[0] if je_stats else {}
+
+	total_vouchers = cint(pe_row.get("total_count") or 0) + cint(je_row.get("total_count") or 0)
+	cleared_vouchers = cint(pe_row.get("cleared_count") or 0) + cint(je_row.get("cleared_count") or 0)
+	uncleared_vouchers = cint(pe_row.get("uncleared_count") or 0) + cint(je_row.get("uncleared_count") or 0)
+
+	uncleared_payments = flt(pe_row.get("uncleared_payments") or 0) + flt(je_row.get("uncleared_payments") or 0)
+	uncleared_receipts = flt(pe_row.get("uncleared_receipts") or 0) + flt(je_row.get("uncleared_receipts") or 0)
+
+	reconciliation_rate = (
+		flt((cleared_vouchers / total_vouchers * 100), 1) if total_vouchers > 0 else 100.0
+	)
+
+	# C. Bank Transaction Status (if any)
+	bt_distribution = []
+	if frappe.db.table_exists("Bank Transaction"):
+		bt_rows = frappe.db.sql(
+			"""
+			SELECT
+				bt.status,
+				COUNT(bt.name) as count,
+				COALESCE(SUM(bt.unallocated_amount), 0) as unallocated_amount,
+				COALESCE(SUM(bt.allocated_amount), 0) as allocated_amount
+			FROM `tabBank Transaction` bt
+			LEFT JOIN `tabBank Account` ba ON ba.name = bt.bank_account
+			WHERE bt.docstatus < 2
+			  AND (%(company)s IS NULL OR bt.company = %(company)s)
+			  AND (ba.account IN %(accounts)s OR bt.bank_account IS NULL)
+			GROUP BY bt.status
+		""",
+			{"accounts": acc_tuple, "company": comp},
+			as_dict=True,
+		)
+		bt_distribution = [
+			{
+				"status": r.status or "Unreconciled",
+				"count": cint(r.count),
+				"unallocated_amount": flt(r.unallocated_amount, 2),
+				"allocated_amount": flt(r.allocated_amount, 2),
+			}
+			for r in bt_rows
+		]
+
+	currency = "PKR"
+	if comp:
+		currency = frappe.get_cached_value("Company", comp, "default_currency") or "PKR"
+
+	return {
+		"company": comp,
+		"currency": currency,
+		"net_bank_balance": net_bank_balance,
+		"bank_accounts": bank_accounts,
+		"reconciliation": {
+			"total_vouchers": total_vouchers,
+			"cleared_vouchers": cleared_vouchers,
+			"uncleared_vouchers": uncleared_vouchers,
+			"uncleared_payments": uncleared_payments,
+			"uncleared_receipts": uncleared_receipts,
+			"reconciliation_rate": reconciliation_rate,
+			"bank_transactions": bt_distribution,
+		},
+	}
+
+
+@frappe.whitelist()
+def get_bank_monthly_balances_and_summary(company=None, month=None, year=None):
+	"""
+	Returns:
+	1. Opening and Closing Balances per bank child ledger for the specified/current month.
+	2. Payment and Receipt summary per bank child ledger with chart datasets.
+	"""
+	_check_dashboard_permissions()
+	comp = _get_active_company(company)
+
+	today = getdate(nowdate())
+	y = cint(year) if year else today.year
+	m = cint(month) if month else today.month
+	target_date = getdate(f"{y}-{m:02d}-01")
+	m_start = get_first_day(target_date)
+	m_end = get_last_day(target_date)
+	month_label = target_date.strftime("%B %Y")
+
+	# Fetch Bank Child Ledgers
+	bank_accounts = frappe.db.sql(
+		"""
+		SELECT name as account, account_name, account_currency, company, parent_account
+		FROM `tabAccount`
+		WHERE account_type = 'Bank'
+		  AND is_group = 0
+		  AND (%(company)s IS NULL OR company = %(company)s)
+		ORDER BY account_name ASC
+	""",
+		{"company": comp},
+		as_dict=True,
+	)
+
+	if not bank_accounts:
+		return {
+			"company": comp,
+			"month_label": month_label,
+			"opening_closing_summary": [],
+			"payment_receipt_chart": {"labels": [], "datasets": []},
+			"totals": {
+				"total_opening": 0.0,
+				"total_receipts": 0.0,
+				"total_payments": 0.0,
+				"net_change": 0.0,
+				"total_closing": 0.0,
+			},
+		}
+
+	# 1. Opening Balances (posting_date < m_start)
+	opening_sql = """
+		SELECT gle.account, COALESCE(SUM(gle.debit - gle.credit), 0) as opening_balance
+		FROM `tabGL Entry` gle
+		INNER JOIN `tabAccount` acc ON acc.name = gle.account
+		WHERE gle.docstatus = 1 AND gle.is_cancelled = 0
+		  AND acc.account_type = 'Bank' AND acc.is_group = 0
+		  AND gle.posting_date < %(start)s
+		  AND (%(company)s IS NULL OR gle.company = %(company)s)
+		GROUP BY gle.account
+	"""
+	opening_map = {
+		r.account: flt(r.opening_balance, 2)
+		for r in frappe.db.sql(opening_sql, {"start": m_start, "company": comp}, as_dict=True)
+	}
+
+	# 2. Monthly Activities (posting_date BETWEEN m_start AND m_end)
+	activity_sql = """
+		SELECT
+			gle.account,
+			COALESCE(SUM(gle.debit), 0) as receipts,
+			COALESCE(SUM(gle.credit), 0) as payments,
+			COUNT(CASE WHEN gle.debit > 0 THEN 1 END) as receipt_count,
+			COUNT(CASE WHEN gle.credit > 0 THEN 1 END) as payment_count
+		FROM `tabGL Entry` gle
+		INNER JOIN `tabAccount` acc ON acc.name = gle.account
+		WHERE gle.docstatus = 1 AND gle.is_cancelled = 0
+		  AND acc.account_type = 'Bank' AND acc.is_group = 0
+		  AND gle.posting_date >= %(start)s AND gle.posting_date <= %(end)s
+		  AND (%(company)s IS NULL OR gle.company = %(company)s)
+		GROUP BY gle.account
+	"""
+	activity_map = {
+		r.account: r
+		for r in frappe.db.sql(activity_sql, {"start": m_start, "end": m_end, "company": comp}, as_dict=True)
+	}
+
+	summary_rows = []
+	chart_labels = []
+	chart_receipts = []
+	chart_payments = []
+
+	total_opening = 0.0
+	total_receipts = 0.0
+	total_payments = 0.0
+	total_closing = 0.0
+
+	for b in bank_accounts:
+		acc_id = b.account
+		op_bal = opening_map.get(acc_id, 0.0)
+		act = activity_map.get(acc_id, {})
+		receipts = flt(act.get("receipts", 0.0), 2)
+		payments = flt(act.get("payments", 0.0), 2)
+		rec_count = cint(act.get("receipt_count", 0))
+		pay_count = cint(act.get("payment_count", 0))
+		net_change = flt(receipts - payments, 2)
+		cl_bal = flt(op_bal + net_change, 2)
+
+		total_opening += op_bal
+		total_receipts += receipts
+		total_payments += payments
+		total_closing += cl_bal
+
+		row = {
+			"account": acc_id,
+			"account_name": b.account_name or acc_id,
+			"currency": b.account_currency or "PKR",
+			"opening_balance": op_bal,
+			"receipts": receipts,
+			"payments": payments,
+			"receipt_count": rec_count,
+			"payment_count": pay_count,
+			"net_change": net_change,
+			"closing_balance": cl_bal,
+		}
+		summary_rows.append(row)
+
+		display_name = b.account_name or acc_id.split(" - ")[0]
+		chart_labels.append(display_name)
+		chart_receipts.append(receipts)
+		chart_payments.append(payments)
+
+	payment_receipt_chart = {
+		"labels": chart_labels,
+		"datasets": [
+			{"name": _("Receipts (Inflow)"), "values": chart_receipts},
+			{"name": _("Payments (Outflow)"), "values": chart_payments},
+		],
+	}
+
+	return {
+		"company": comp,
+		"month_label": month_label,
+		"opening_closing_summary": summary_rows,
+		"payment_receipt_chart": payment_receipt_chart,
+		"totals": {
+			"total_opening": flt(total_opening, 2),
+			"total_receipts": flt(total_receipts, 2),
+			"total_payments": flt(total_payments, 2),
+			"net_change": flt(total_receipts - total_payments, 2),
+			"total_closing": flt(total_closing, 2),
+		},
+	}
+

@@ -142,5 +142,332 @@ class TestTaskDependencyStatus(unittest.TestCase):
 		self.assertEqual(parent.status, "Completed")
 		self.assertEqual(parent.progress, 100.0)
 
+	def test_parent_task_progress_updates_when_child_completed(self):
+		parent = frappe.new_doc("Task")
+		parent.subject = "Parent Phase"
+		parent.project = self.proj.name
+		parent.is_group = 1
+		parent.status = "Open"
+		parent.insert(ignore_permissions=True)
+
+		child1 = frappe.new_doc("Task")
+		child1.subject = "Child 1"
+		child1.project = self.proj.name
+		child1.parent_task = parent.name
+		child1.status = "Open"
+		child1.insert(ignore_permissions=True)
+
+		child2 = frappe.new_doc("Task")
+		child2.subject = "Child 2"
+		child2.project = self.proj.name
+		child2.parent_task = parent.name
+		child2.status = "Open"
+		child2.insert(ignore_permissions=True)
+
+		parent.reload()
+		self.assertEqual(parent.progress, 0.0)
+
+		# Complete Child 1 (1 of 2 -> 50%)
+		child1.status = "Completed"
+		child1.save(ignore_permissions=True)
+
+		parent.reload()
+		self.assertEqual(parent.progress, 50.0)
+		self.assertEqual(parent.status, "Working")
+
+		# Complete Child 2 (2 of 2 -> 100%)
+		child2.status = "Completed"
+		child2.save(ignore_permissions=True)
+
+		parent.reload()
+		self.assertEqual(parent.progress, 100.0)
+		self.assertEqual(parent.status, "Completed")
+
+	def test_parent_task_progress_with_partial_child_progress(self):
+		parent = frappe.new_doc("Task")
+		parent.subject = "Parent Phase Partial"
+		parent.project = self.proj.name
+		parent.is_group = 1
+		parent.insert(ignore_permissions=True)
+
+		child1 = frappe.new_doc("Task")
+		child1.subject = "Child Part 1"
+		child1.project = self.proj.name
+		child1.parent_task = parent.name
+		child1.progress = 40.0
+		child1.status = "Working"
+		child1.insert(ignore_permissions=True)
+
+		parent.reload()
+		# Only child1 exists so far -> 40%
+		self.assertEqual(parent.progress, 40.0)
+
+		child2 = frappe.new_doc("Task")
+		child2.subject = "Child Part 2"
+		child2.project = self.proj.name
+		child2.parent_task = parent.name
+		child2.progress = 80.0
+		child2.status = "Working"
+		child2.insert(ignore_permissions=True)
+
+		parent.reload()
+		# (40 + 80) / 2 = 60%
+		self.assertEqual(parent.progress, 60.0)
+		self.assertEqual(parent.status, "Working")
+
+	def test_parent_task_progress_weighted(self):
+		parent = frappe.new_doc("Task")
+		parent.subject = "Parent Weighted"
+		parent.project = self.proj.name
+		parent.is_group = 1
+		parent.insert(ignore_permissions=True)
+
+		child1 = frappe.new_doc("Task")
+		child1.subject = "Child Weighted 1"
+		child1.project = self.proj.name
+		child1.parent_task = parent.name
+		child1.task_weight = 1.0
+		child1.insert(ignore_permissions=True)
+
+		child2 = frappe.new_doc("Task")
+		child2.subject = "Child Weighted 2"
+		child2.project = self.proj.name
+		child2.parent_task = parent.name
+		child2.task_weight = 3.0
+		child2.insert(ignore_permissions=True)
+
+		# Complete Child 1 (weight 1 of 4 = 25%)
+		child1.status = "Completed"
+		child1.save(ignore_permissions=True)
+
+		parent.reload()
+		self.assertEqual(parent.progress, 25.0)
+
+	def test_parent_task_progress_on_child_deletion(self):
+		parent = frappe.new_doc("Task")
+		parent.subject = "Parent Deletion Test"
+		parent.project = self.proj.name
+		parent.is_group = 1
+		parent.insert(ignore_permissions=True)
+
+		child1 = frappe.new_doc("Task")
+		child1.subject = "Child Del 1"
+		child1.project = self.proj.name
+		child1.parent_task = parent.name
+		child1.status = "Completed"
+		child1.insert(ignore_permissions=True)
+
+		child2 = frappe.new_doc("Task")
+		child2.subject = "Child Del 2"
+		child2.project = self.proj.name
+		child2.parent_task = parent.name
+		child2.status = "Open"
+		child2.insert(ignore_permissions=True)
+
+		parent.reload()
+		self.assertEqual(parent.progress, 50.0)
+
+		# Delete child2 -> remaining child1 is Completed -> parent becomes 100% and Completed
+		frappe.delete_doc("Task", child2.name, force=True, ignore_permissions=True)
+
+		parent.reload()
+		self.assertEqual(parent.progress, 100.0)
+		self.assertEqual(parent.status, "Completed")
+
+	def test_multi_level_progress_rollup(self):
+		# Grandparent -> Parent -> Child1 & Child2
+		grandparent = frappe.new_doc("Task")
+		grandparent.subject = "Grandparent Phase"
+		grandparent.project = self.proj.name
+		grandparent.is_group = 1
+		grandparent.insert(ignore_permissions=True)
+
+		parent = frappe.new_doc("Task")
+		parent.subject = "Parent Milestone"
+		parent.project = self.proj.name
+		parent.parent_task = grandparent.name
+		parent.is_group = 1
+		parent.insert(ignore_permissions=True)
+
+		child1 = frappe.new_doc("Task")
+		child1.subject = "Subtask 1"
+		child1.project = self.proj.name
+		child1.parent_task = parent.name
+		child1.insert(ignore_permissions=True)
+
+		child2 = frappe.new_doc("Task")
+		child2.subject = "Subtask 2"
+		child2.project = self.proj.name
+		child2.parent_task = parent.name
+		child2.insert(ignore_permissions=True)
+
+		# Complete Subtask 1 (Parent has 2 children -> 50%)
+		# Grandparent has 1 child (Parent at 50%) -> Grandparent = 50%
+		child1.status = "Completed"
+		child1.save(ignore_permissions=True)
+
+		parent.reload()
+		grandparent.reload()
+		self.assertEqual(parent.progress, 50.0)
+		self.assertEqual(grandparent.progress, 50.0)
+
+		# Complete Subtask 2 -> Parent = 100%, Grandparent = 100%
+		child2.status = "Completed"
+		child2.save(ignore_permissions=True)
+
+		parent.reload()
+		grandparent.reload()
+		self.assertEqual(parent.progress, 100.0)
+		self.assertEqual(parent.status, "Completed")
+		self.assertEqual(grandparent.progress, 100.0)
+		self.assertEqual(grandparent.status, "Completed")
+
+	def test_project_percent_complete_with_parent_and_child_tasks(self):
+		"""
+		Tests that in a project with 1 parent task and 3 child tasks (weights 10, 20, 70):
+		- Parent task container is excluded from project task count.
+		- When 70% child task completes, parent progress is 70% and project percent_complete is 33.33% (not 25%).
+		- When 20% child task completes, project percent_complete is 66.67%.
+		- When 10% child task completes, parent is 100% and project percent_complete is 100.0% (Completed).
+		"""
+		parent = frappe.new_doc("Task")
+		parent.subject = "Parent Phase"
+		parent.project = self.proj.name
+		parent.is_group = 1
+		parent.insert(ignore_permissions=True)
+
+		child1 = frappe.new_doc("Task")
+		child1.subject = "Child 10"
+		child1.project = self.proj.name
+		child1.parent_task = parent.name
+		child1.task_weight = 10.0
+		child1.insert(ignore_permissions=True)
+
+		child2 = frappe.new_doc("Task")
+		child2.subject = "Child 20"
+		child2.project = self.proj.name
+		child2.parent_task = parent.name
+		child2.task_weight = 20.0
+		child2.insert(ignore_permissions=True)
+
+		child3 = frappe.new_doc("Task")
+		child3.subject = "Child 70"
+		child3.project = self.proj.name
+		child3.parent_task = parent.name
+		child3.task_weight = 70.0
+		child3.insert(ignore_permissions=True)
+
+		self.proj.reload()
+		self.assertEqual(self.proj.percent_complete, 0.0)
+
+		# 1. Complete child3 (70% weight)
+		child3.status = "Completed"
+		child3.save(ignore_permissions=True)
+
+		parent.reload()
+		self.proj.reload()
+		self.assertEqual(parent.progress, 70.0)
+		self.assertEqual(parent.status, "Working")
+		# 1 out of 3 leaf tasks completed = 33.33% (NOT 25%)
+		self.assertEqual(self.proj.percent_complete, 33.33)
+		self.assertEqual(self.proj.status, "Open")
+
+		# 2. Complete child2 (20% weight)
+		child2.status = "Completed"
+		child2.save(ignore_permissions=True)
+
+		parent.reload()
+		self.proj.reload()
+		self.assertEqual(parent.progress, 90.0)
+		self.assertEqual(parent.status, "Working")
+		# 2 out of 3 leaf tasks completed = 66.67% (NOT 50%)
+		self.assertEqual(self.proj.percent_complete, 66.67)
+
+		# 3. Complete child1 (10% weight)
+		child1.status = "Completed"
+		child1.save(ignore_permissions=True)
+
+		parent.reload()
+		self.proj.reload()
+		self.assertEqual(parent.progress, 100.0)
+		self.assertEqual(parent.status, "Completed")
+		# 3 out of 3 leaf tasks completed = 100.0%
+		self.assertEqual(self.proj.percent_complete, 100.0)
+		self.assertEqual(self.proj.status, "Completed")
+
+		# 4. Reopen child1 -> rolls back to 66.67% and Open
+		child1.status = "Open"
+		child1.progress = 0.0
+		child1.save(ignore_permissions=True)
+
+		parent.reload()
+		self.proj.reload()
+		self.assertEqual(parent.progress, 90.0)
+		self.assertEqual(parent.status, "Working")
+		self.assertEqual(self.proj.percent_complete, 66.67)
+		self.assertEqual(self.proj.status, "Open")
+
+	def test_project_percent_complete_with_task_weight_method(self):
+		"""
+		Tests that when project percent_complete_method is 'Task Weight':
+		- Progress is weighted solely across leaf tasks.
+		- Completing the 70% leaf task produces 70.0% project progress.
+		"""
+		proj = frappe.new_doc("Project")
+		proj.project_name = "_Test Weighted Proj " + random_string(4)
+		proj.company = self.company
+		proj.percent_complete_method = "Task Weight"
+		proj.insert(ignore_permissions=True)
+
+		parent = frappe.new_doc("Task")
+		parent.subject = "Parent Group"
+		parent.project = proj.name
+		parent.is_group = 1
+		parent.insert(ignore_permissions=True)
+
+		child1 = frappe.new_doc("Task")
+		child1.subject = "Leaf 10"
+		child1.project = proj.name
+		child1.parent_task = parent.name
+		child1.task_weight = 10.0
+		child1.insert(ignore_permissions=True)
+
+		child2 = frappe.new_doc("Task")
+		child2.subject = "Leaf 20"
+		child2.project = proj.name
+		child2.parent_task = parent.name
+		child2.task_weight = 20.0
+		child2.insert(ignore_permissions=True)
+
+		child3 = frappe.new_doc("Task")
+		child3.subject = "Leaf 70"
+		child3.project = proj.name
+		child3.parent_task = parent.name
+		child3.task_weight = 70.0
+		child3.insert(ignore_permissions=True)
+
+		# Complete Leaf 70
+		child3.status = "Completed"
+		child3.save(ignore_permissions=True)
+
+		proj.reload()
+		self.assertEqual(proj.percent_complete, 70.0)
+
+		# Complete Leaf 20
+		child2.status = "Completed"
+		child2.save(ignore_permissions=True)
+
+		proj.reload()
+		self.assertEqual(proj.percent_complete, 90.0)
+
+		# Complete Leaf 10
+		child1.status = "Completed"
+		child1.save(ignore_permissions=True)
+
+		proj.reload()
+		self.assertEqual(proj.percent_complete, 100.0)
+		self.assertEqual(proj.status, "Completed")
+
 	def tearDown(self):
 		frappe.db.rollback()
+

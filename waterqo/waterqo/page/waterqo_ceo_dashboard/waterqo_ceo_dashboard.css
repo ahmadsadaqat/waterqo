@@ -481,3 +481,410 @@
 	color: var(--wqo-text-muted);
 	font-size: 0.88rem;
 }
+
+/* ============================================================
+   Bank & Treasury Management Section Styles
+   ============================================================ */
+
+.waterqo-ceo-dashboard .wqo-section-heading {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin: 32px 0 16px 0;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.waterqo-ceo-dashboard .wqo-section-title {
+	font-size: 1.25rem;
+	font-weight: 700;
+	color: var(--wqo-text-main);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+}
+
+.waterqo-ceo-dashboard .wqo-section-actions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.waterqo-ceo-dashboard .wqo-badge-neutral {
+	background: var(--bg-light-gray, rgba(0, 0, 0, 0.06));
+	color: var(--wqo-text-muted);
+	border: 1px solid var(--wqo-border);
+	font-size: 0.75rem;
+	font-weight: 600;
+	padding: 3px 8px;
+	border-radius: 6px;
+}
+
+.waterqo-ceo-dashboard .wqo-banking-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 20px;
+	margin-bottom: 24px;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-card {
+	display: flex;
+	flex-direction: column;
+	min-height: 330px;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-content-wrap {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+}
+
+/* Card 1: Bank-wise Current Balances */
+.waterqo-ceo-dashboard .wqo-bank-balances-container {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-net-banner {
+	padding: 12px 16px;
+	border-radius: var(--wqo-radius-sm);
+	margin-bottom: 14px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(59, 130, 246, 0.06));
+	border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.waterqo-ceo-dashboard .wqo-bank-net-banner.negative {
+	background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(245, 158, 11, 0.06));
+	border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.waterqo-ceo-dashboard .wqo-net-banner-text {
+	display: flex;
+	flex-direction: column;
+}
+
+.waterqo-ceo-dashboard .wqo-net-banner-label {
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	font-weight: 600;
+	color: var(--wqo-text-muted);
+}
+
+.waterqo-ceo-dashboard .wqo-net-banner-val {
+	font-size: 1.35rem;
+	font-weight: 800;
+	color: var(--wqo-text-main);
+	line-height: 1.2;
+}
+
+.waterqo-ceo-dashboard .wqo-net-banner-count {
+	font-size: 0.75rem;
+	background: var(--wqo-card-bg);
+	padding: 4px 10px;
+	border-radius: 12px;
+	border: 1px solid var(--wqo-border);
+	color: var(--wqo-text-muted);
+	font-weight: 600;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	max-height: 250px;
+	overflow-y: auto;
+	padding-right: 4px;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 10px 12px;
+	border-radius: var(--wqo-radius-sm);
+	border: 1px solid var(--wqo-border);
+	background: var(--bg-light-gray, rgba(0, 0, 0, 0.015));
+	transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-item:hover {
+	background: var(--bg-light-gray, rgba(0, 0, 0, 0.04));
+	transform: translateX(2px);
+}
+
+.waterqo-ceo-dashboard .wqo-bank-item-info {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	flex: 1;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-icon {
+	width: 34px;
+	height: 34px;
+	min-width: 34px;
+	border-radius: 8px;
+	background: rgba(59, 130, 246, 0.1);
+	color: var(--wqo-primary);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.95rem;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-details {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-name {
+	font-weight: 600;
+	font-size: 0.88rem;
+	color: var(--wqo-text-main);
+	text-decoration: none;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-name:hover {
+	color: var(--wqo-primary);
+	text-decoration: underline;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-sub {
+	font-size: 0.72rem;
+	color: var(--wqo-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-item-balance {
+	text-align: right;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 4px;
+	margin-left: 12px;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-amount {
+	font-size: 0.95rem;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.waterqo-ceo-dashboard .wqo-bal-positive {
+	color: var(--wqo-success);
+}
+
+.waterqo-ceo-dashboard .wqo-bal-negative {
+	color: var(--wqo-danger);
+}
+
+.waterqo-ceo-dashboard .wqo-bank-share-wrap {
+	width: 80px;
+	height: 5px;
+	background: var(--bg-light-gray, rgba(0, 0, 0, 0.08));
+	border-radius: 4px;
+	overflow: hidden;
+	position: relative;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-share-bar {
+	height: 100%;
+	background: var(--wqo-primary);
+	border-radius: 4px;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-share-text {
+	display: none;
+}
+
+/* Card 2: Bank Reconciliation Status */
+.waterqo-ceo-dashboard .wqo-recon-container {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-meter-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-rate-block {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-rate-num {
+	font-size: 1.6rem;
+	font-weight: 800;
+	line-height: 1;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-meta {
+	font-size: 0.8rem;
+	color: var(--wqo-text-muted);
+	font-weight: 500;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-meter-track {
+	width: 100%;
+	height: 8px;
+	background: var(--bg-light-gray, rgba(0, 0, 0, 0.08));
+	border-radius: 6px;
+	overflow: hidden;
+	margin-bottom: 16px;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-meter-fill {
+	height: 100%;
+	border-radius: 6px;
+	transition: width 0.6s ease;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-metrics-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 10px;
+	margin-bottom: 14px;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-metric-card {
+	padding: 10px 12px;
+	border-radius: var(--wqo-radius-sm);
+	border: 1px solid var(--wqo-border);
+	background: var(--bg-light-gray, rgba(0, 0, 0, 0.02));
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.waterqo-ceo-dashboard .wqo-metric-label {
+	font-size: 0.72rem;
+	color: var(--wqo-text-muted);
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	font-weight: 500;
+}
+
+.waterqo-ceo-dashboard .wqo-metric-val {
+	font-size: 1.05rem;
+	font-weight: 700;
+	color: var(--wqo-text-main);
+}
+
+.waterqo-ceo-dashboard .wqo-recon-bt-section {
+	margin-bottom: 12px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	font-size: 0.78rem;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-bt-title {
+	font-weight: 600;
+	color: var(--wqo-text-muted);
+}
+
+.waterqo-ceo-dashboard .wqo-recon-bt-tags {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-bt-tag {
+	padding: 2px 8px;
+	border-radius: 6px;
+	font-size: 0.72rem;
+	background: var(--bg-light-gray, rgba(0, 0, 0, 0.05));
+	border: 1px solid var(--wqo-border);
+}
+
+.waterqo-ceo-dashboard .wqo-recon-footer-action {
+	margin-top: auto;
+	padding-top: 8px;
+	display: flex;
+	justify-content: flex-end;
+}
+
+.waterqo-ceo-dashboard .wqo-recon-btn {
+	font-weight: 600;
+	padding: 6px 14px;
+	border-radius: 6px;
+	font-size: 0.8rem;
+}
+
+/* Card 3: Monthly Opening & Closing Table */
+.waterqo-ceo-dashboard .wqo-bank-table tfoot td {
+	border-top: 2px solid var(--wqo-border);
+	background: var(--bg-light-gray, rgba(0, 0, 0, 0.03));
+	font-weight: 600;
+	padding: 10px 12px;
+}
+
+/* Card 4: Payment & Receipt Totals Pills */
+.waterqo-ceo-dashboard .wqo-bank-totals-pills {
+	display: flex;
+	gap: 10px;
+	margin-top: 14px;
+	flex-wrap: wrap;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-total-pill {
+	flex: 1;
+	min-width: 140px;
+	padding: 10px 12px;
+	border-radius: var(--wqo-radius-sm);
+	border: 1px solid var(--wqo-border);
+	background: var(--bg-light-gray, rgba(0, 0, 0, 0.02));
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.waterqo-ceo-dashboard .wqo-bt-label {
+	font-size: 0.72rem;
+	color: var(--wqo-text-muted);
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	font-weight: 500;
+}
+
+.waterqo-ceo-dashboard .wqo-bt-val {
+	font-size: 1rem;
+	font-weight: 700;
+	color: var(--wqo-text-main);
+}
+
+.waterqo-ceo-dashboard .wqo-bt-val.positive {
+	color: var(--wqo-success);
+}
+
+.waterqo-ceo-dashboard .wqo-bt-val.negative {
+	color: var(--wqo-danger);
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+	.waterqo-ceo-dashboard .wqo-banking-grid {
+		grid-template-columns: 1fr;
+	}
+}

@@ -1,6 +1,7 @@
 import frappe
 from frappe import _
 from frappe.utils import flt, fmt_money
+from waterqo.budget_control.project import recalculate_project_percent_complete
 from waterqo.budget_control.utils import (
 	get_task_actual_cost,
 	recalculate_project_budget,
@@ -129,27 +130,43 @@ def validate_task(doc, method=None):
 				title=_("Task Budget Exceeded"),
 			)
 
-	# Auto-complete if all dependencies and child tasks are completed
-	prereq_names = [d.task for d in (doc.depends_on or []) if d.task]
+	# Auto-complete and progress calculation from dependencies and child tasks
+	excluding_task = getattr(doc.flags, "excluding_task", None)
+	prereq_names = [d.task for d in (doc.depends_on or []) if d.task and d.task != excluding_task]
 	if doc.name and frappe.db.exists("Task", doc.name):
+		child_filters = {"parent_task": doc.name, "docstatus": ["<", 2], "name": ["!=", doc.name]}
+		if excluding_task:
+			child_filters["name"] = ["not in", [doc.name, excluding_task]]
 		child_names = frappe.db.get_all(
 			"Task",
-			filters={"parent_task": doc.name, "docstatus": ["<", 2], "name": ["!=", doc.name]},
+			filters=child_filters,
 			pluck="name",
 		)
 		prereq_names.extend(child_names)
 
 	if prereq_names:
-		prereq_statuses = frappe.db.get_all(
+		prereq_tasks_data = frappe.db.get_all(
 			"Task",
 			filters={"name": ["in", list(set(prereq_names))], "docstatus": ["<", 2]},
-			fields=["name", "status", "progress"],
+			fields=["name", "status", "progress", "task_weight"],
 		)
-		if prereq_statuses and all(s.status in ("Completed", "Cancelled") for s in prereq_statuses):
-			if doc.status not in ("Completed", "Cancelled", "Template"):
-				doc.status = "Completed"
-				doc.progress = 100
+		if prereq_tasks_data:
+			all_completed = all(s.status in ("Completed", "Cancelled") for s in prereq_tasks_data)
+			any_working = any(s.status in ("Working", "Completed") or flt(s.progress) > 0 for s in prereq_tasks_data)
+			new_progress = calculate_group_task_progress(prereq_tasks_data)
+
+			if all_completed:
+				if doc.status not in ("Completed", "Cancelled", "Template"):
+					doc.status = "Completed"
+				doc.progress = 100.0
 				doc.completed_on = doc.completed_on or frappe.utils.today()
+			else:
+				doc.progress = new_progress
+				if doc.status == "Completed":
+					doc.status = "Working" if any_working else "Open"
+					doc.completed_on = None
+				elif doc.status == "Open" and (new_progress > 0 or any_working):
+					doc.status = "Working"
 
 	actual_cost = get_task_actual_cost(doc.name) if doc.name else 0.0
 	doc.custom_actual_task_cost = actual_cost
@@ -167,13 +184,16 @@ def on_update_task(doc, method=None):
 	prev_parent = getattr(doc, "_previous_parent_task", None)
 	if prev_parent and prev_parent != doc.parent_task:
 		recalculate_task_budget(prev_parent, update_parents=True)
+		check_and_update_task_status_from_dependencies(prev_parent)
 
 	prev_project = getattr(doc, "_previous_project", None)
 	if prev_project and prev_project != doc.project:
 		recalculate_project_budget(prev_project)
+		recalculate_project_percent_complete(prev_project)
 
 	if doc.project:
 		recalculate_project_budget(doc.project)
+		recalculate_project_percent_complete(doc.project)
 
 	# 2. Dependency status propagation
 	if not getattr(frappe.flags, "in_task_dependency_update", False):
@@ -182,23 +202,100 @@ def on_update_task(doc, method=None):
 			propagate_task_status_to_dependents(doc.name)
 		finally:
 			frappe.flags.in_task_dependency_update = False
+		if doc.project:
+			recalculate_project_percent_complete(doc.project)
 
 def on_trash_task(doc, method=None):
-	"""Triggers parent task, project budget, and dependency status updates after Task is deleted."""
+	"""Triggers parent task, project budget, and dependency status updates when Task is being deleted."""
+	# 1. Find dependent tasks before deleting links
+	dependent_tasks = frappe.db.get_all(
+		"Task Depends On",
+		filters={"task": doc.name, "parenttype": "Task"},
+		pluck="parent",
+		distinct=True,
+	)
+	if doc.parent_task and doc.parent_task not in dependent_tasks:
+		dependent_tasks.append(doc.parent_task)
+
+	# 2. Delete dependency links so parent validation passes
+	frappe.db.delete("Task Depends On", {"task": doc.name})
+
 	if doc.parent_task:
 		recalculate_task_budget(doc.parent_task, update_parents=True, excluding_task=doc.name)
 	if doc.project:
 		recalculate_project_budget(doc.project, excluding_task=doc.name)
+		recalculate_project_percent_complete(doc.project, excluding_task=doc.name)
 
 	if not getattr(frappe.flags, "in_task_dependency_update", False):
 		frappe.flags.in_task_dependency_update = True
 		try:
-			propagate_task_status_to_dependents(doc.name, excluding_task=doc.name)
+			for target_name in dependent_tasks:
+				check_and_update_task_status_from_dependencies(target_name, excluding_task=doc.name)
 		finally:
 			frappe.flags.in_task_dependency_update = False
+		if doc.project:
+			recalculate_project_percent_complete(doc.project, excluding_task=doc.name)
+
+def after_delete_task(doc, method=None):
+	"""Ensures parent tasks and project budgets are recalculated after Task row is deleted from DB."""
+	frappe.db.delete("Task Depends On", {"task": doc.name})
+	if doc.parent_task:
+		recalculate_task_budget(doc.parent_task, update_parents=True)
+		check_and_update_task_status_from_dependencies(doc.parent_task)
+	if doc.project:
+		recalculate_project_budget(doc.project)
+		recalculate_project_percent_complete(doc.project)
+
+def calculate_group_task_progress(prereq_tasks_data: list) -> float:
+	"""
+	Calculates aggregate progress % from prerequisite / child tasks.
+	- Completed/Cancelled tasks count as 100% progress.
+	- Active tasks use their current progress % (0-100%).
+	- If tasks have task_weight defined and sum(weights) > 0, calculates weighted average.
+	- Otherwise, calculates simple average.
+	"""
+	if not prereq_tasks_data:
+		return 0.0
+
+	# Check if all completed / cancelled
+	if all(t.get("status") in ("Completed", "Cancelled") for t in prereq_tasks_data):
+		return 100.0
+
+	# Exclude Cancelled tasks if other non-cancelled tasks exist
+	active_tasks = [t for t in prereq_tasks_data if t.get("status") != "Cancelled"]
+	if not active_tasks:
+		# All tasks are Cancelled
+		return 100.0
+
+	# Calculate progress per task
+	task_progresses = []
+	weights = []
+	has_custom_weight = False
+
+	for t in active_tasks:
+		status = t.get("status")
+		if status == "Completed":
+			prog = 100.0
+		else:
+			prog = min(max(flt(t.get("progress")), 0.0), 100.0)
+
+		task_progresses.append(prog)
+		w = flt(t.get("task_weight"))
+		if w > 0:
+			has_custom_weight = True
+		weights.append(w)
+
+	total_weight = sum(weights)
+	if has_custom_weight and total_weight > 0:
+		weighted_sum = sum(p * w for p, w in zip(task_progresses, weights))
+		calculated = weighted_sum / total_weight
+	else:
+		calculated = sum(task_progresses) / len(task_progresses)
+
+	return round(flt(calculated), 2)
 
 def check_and_update_task_status_from_dependencies(target_name: str, visited: set | None = None, excluding_task: str | None = None):
-	"""Checks all prerequisites (depends_on table + child tasks) for target_name and updates its status accordingly."""
+	"""Checks all prerequisites (depends_on table + child tasks) for target_name and updates its status and progress accordingly."""
 	if not target_name or not frappe.db.exists("Task", target_name):
 		return
 
@@ -235,42 +332,64 @@ def check_and_update_task_status_from_dependencies(target_name: str, visited: se
 
 	all_prereq_names = set(prerequisite_tasks + child_tasks)
 	if not all_prereq_names:
+		# If previously had children or prerequisites but now has none
+		target_doc = frappe.get_doc("Task", target_name)
+		if (target_doc.is_group or target_doc.parent_task) and flt(target_doc.progress) > 0:
+			target_doc.progress = 0.0
+			if target_doc.status == "Completed":
+				target_doc.status = "Open"
+				target_doc.completed_on = None
+			target_doc.save(ignore_permissions=True)
+			propagate_task_status_to_dependents(target_name, visited=visited)
 		return
 
 	prereq_tasks_data = frappe.db.get_all(
 		"Task",
 		filters={"name": ["in", list(all_prereq_names)], "docstatus": ["<", 2]},
-		fields=["name", "status", "progress"],
+		fields=["name", "status", "progress", "task_weight"],
 	)
 
 	if not prereq_tasks_data:
 		return
 
 	all_completed = all(t.status in ("Completed", "Cancelled") for t in prereq_tasks_data)
-	any_working = any(t.status in ("Working", "Completed") for t in prereq_tasks_data)
+	any_working = any(t.status in ("Working", "Completed") or flt(t.progress) > 0 for t in prereq_tasks_data)
 
 	target_doc = frappe.get_doc("Task", target_name)
+	if excluding_task:
+		target_doc.flags.excluding_task = excluding_task
+		if getattr(target_doc, "depends_on", None):
+			target_doc.depends_on = [d for d in target_doc.depends_on if d.task != excluding_task]
 	updated = False
+	new_progress = calculate_group_task_progress(prereq_tasks_data)
 
 	if all_completed:
 		if target_doc.status != "Completed":
 			target_doc.status = "Completed"
-			target_doc.progress = 100
 			target_doc.completed_on = target_doc.completed_on or frappe.utils.today()
-			target_doc.save(ignore_permissions=True)
+			updated = True
+		if flt(target_doc.progress) != 100.0:
+			target_doc.progress = 100.0
 			updated = True
 	else:
-		# If previously completed but a prerequisite is no longer completed/cancelled
 		if target_doc.status == "Completed":
 			target_doc.status = "Working" if any_working else "Open"
 			target_doc.completed_on = None
-			avg_progress = sum(flt(t.progress) for t in prereq_tasks_data) / len(prereq_tasks_data)
-			target_doc.progress = avg_progress
-			target_doc.save(ignore_permissions=True)
+			updated = True
+		elif target_doc.status == "Open" and (new_progress > 0 or any_working):
+			target_doc.status = "Working"
+			updated = True
+		elif target_doc.status == "Working" and new_progress == 0 and not any_working:
+			target_doc.status = "Open"
+			updated = True
+
+		if flt(target_doc.progress) != new_progress:
+			target_doc.progress = new_progress
 			updated = True
 
 	if updated:
-		# Recursively propagate to any tasks that depend on target_name
+		target_doc.save(ignore_permissions=True)
+		# Recursively propagate to any tasks that depend on target_name or are parents of target_name
 		propagate_task_status_to_dependents(target_name, visited=visited)
 
 def propagate_task_status_to_dependents(task_name: str, visited: set | None = None, excluding_task: str | None = None):

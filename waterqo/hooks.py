@@ -44,7 +44,8 @@ app_license = "mit"
 
 # include js in doctype views
 doctype_js = {
-	"Employee": "public/js/employee.js"
+	"Employee": "public/js/employee.js",
+	"Task": "public/js/task.js",
 }
 
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
@@ -133,9 +134,9 @@ after_migrate = "waterqo.setup.setup_project_task_budget_control"
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+override_doctype_class = {
+	"Project": "waterqo.budget_control.project.WaterQOProject"
+}
 
 # Document Events
 # ---------------
@@ -152,7 +153,8 @@ doc_events = {
 		"autoname": "waterqo.budget_control.task.autoname_task",
 		"validate": "waterqo.budget_control.task.validate_task",
 		"on_update": "waterqo.budget_control.task.on_update_task",
-		"on_trash": "waterqo.budget_control.task.on_trash_task"
+		"on_trash": "waterqo.budget_control.task.on_trash_task",
+		"after_delete": "waterqo.budget_control.task.after_delete_task"
 	},
 	"Stock Entry": {
 		"validate": "waterqo.budget_control.stock_entry.validate_stock_entry",

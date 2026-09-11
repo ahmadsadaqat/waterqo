@@ -188,6 +188,85 @@ class WaterqoCEODashboard {
 					</div>
 				</div>
 
+				<!-- Section: Bank & Treasury Management -->
+				<div class="wqo-section-heading">
+					<div class="wqo-section-title">
+						<i class="fa fa-university" style="color: var(--wqo-primary);"></i>
+						<span>${__("Bank & Treasury Management")}</span>
+					</div>
+					<div class="wqo-section-actions">
+						<a href="/app/bank-reconciliation-tool" class="wqo-card-action">
+							<i class="fa fa-refresh"></i> ${__("Reconciliation Tool")} &rarr;
+						</a>
+						<a href="/app/bank-account" class="wqo-card-action">
+							<i class="fa fa-university"></i> ${__("Bank Accounts")} &rarr;
+						</a>
+					</div>
+				</div>
+
+				<!-- Bank Row 1: Current Balances & Reconciliation Status -->
+				<div class="wqo-banking-grid">
+					<!-- Card 1: Bank-wise Current Balance -->
+					<div class="wqo-card wqo-bank-card">
+						<div class="wqo-card-header">
+							<h3 class="wqo-card-title">
+								<i class="fa fa-money" style="color: #10b981;"></i>
+								${__("Bank-wise Current Balance")}
+							</h3>
+							<a href="/app/general-ledger" class="wqo-card-action">${__("General Ledger")} &rarr;</a>
+						</div>
+						<div id="wqo-bank-balances-wrap" class="wqo-bank-content-wrap">
+							<div class="wqo-skeleton wqo-skeleton-chart" style="height: 240px;"></div>
+						</div>
+					</div>
+
+					<!-- Card 2: Bank Reconciliation Status -->
+					<div class="wqo-card wqo-bank-card">
+						<div class="wqo-card-header">
+							<h3 class="wqo-card-title">
+								<i class="fa fa-check-square-o" style="color: #3b82f6;"></i>
+								${__("Bank Reconciliation Status")}
+							</h3>
+							<a href="/app/bank-reconciliation-statement" class="wqo-card-action">${__("Statement")} &rarr;</a>
+						</div>
+						<div id="wqo-bank-reconciliation-wrap" class="wqo-bank-content-wrap">
+							<div class="wqo-skeleton wqo-skeleton-chart" style="height: 240px;"></div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Bank Row 2: Monthly Opening/Closing & Payment/Receipt Summary -->
+				<div class="wqo-banking-grid">
+					<!-- Card 3: Opening and Closing Balances (Monthly) -->
+					<div class="wqo-card wqo-bank-card">
+						<div class="wqo-card-header">
+							<h3 class="wqo-card-title">
+								<i class="fa fa-calendar-check-o" style="color: #8b5cf6;"></i>
+								${__("Monthly Opening & Closing Balances")}
+							</h3>
+							<span class="wqo-badge wqo-badge-neutral" id="wqo-bank-month-badge">${__("Current Month")}</span>
+						</div>
+						<div id="wqo-bank-opening-closing-wrap" class="wqo-bank-content-wrap">
+							<div class="wqo-skeleton wqo-skeleton-chart" style="height: 240px;"></div>
+						</div>
+					</div>
+
+					<!-- Card 4: Bank-wise Payment & Receipt Summary (Monthly) -->
+					<div class="wqo-card wqo-bank-card">
+						<div class="wqo-card-header">
+							<h3 class="wqo-card-title">
+								<i class="fa fa-bar-chart" style="color: #06b6d4;"></i>
+								${__("Payment & Receipt Summary (Monthly)")}
+							</h3>
+							<span class="wqo-badge wqo-badge-neutral" id="wqo-bank-summary-badge">${__("Inflow vs Outflow")}</span>
+						</div>
+						<div id="wqo-bank-payment-receipt-chart" class="wqo-chart-container" style="min-height: 200px;">
+							<div class="wqo-skeleton wqo-skeleton-chart" style="height: 200px;"></div>
+						</div>
+						<div id="wqo-bank-payment-receipt-totals" class="wqo-bank-totals-pills"></div>
+					</div>
+				</div>
+
 				<!-- Bottom Section: Tasks Breakdown & HRMS Snapshot -->
 				<div class="wqo-bottom-grid">
 					<!-- Task Completion Breakdown -->
@@ -257,6 +336,25 @@ class WaterqoCEODashboard {
 			})
 			.catch((err) => {
 				console.error("Error loading HRMS summary:", err);
+			});
+
+		// Fetch Bank Treasury APIs
+		frappe.xcall("waterqo.api.ceo_dashboard.get_bank_current_balances_and_reconciliation", { company: company })
+			.then((data) => {
+				me.render_bank_balances(data);
+				me.render_bank_reconciliation(data);
+			})
+			.catch((err) => {
+				console.error("Error loading bank balances and reconciliation:", err);
+			});
+
+		frappe.xcall("waterqo.api.ceo_dashboard.get_bank_monthly_balances_and_summary", { company: company })
+			.then((data) => {
+				me.render_bank_opening_closing(data);
+				me.render_bank_payment_receipt_summary(data);
+			})
+			.catch((err) => {
+				console.error("Error loading bank monthly summary:", err);
 			});
 
 		const now = new Date();
@@ -506,6 +604,319 @@ class WaterqoCEODashboard {
 						<span class="wqo-stat-num" style="color: var(--wqo-warning);">${onLeave}</span>
 					</div>
 				</div>
+			</div>
+		`);
+	}
+
+	render_bank_balances(data) {
+		const $wrap = $("#wqo-bank-balances-wrap");
+		if (!data || !data.bank_accounts || data.bank_accounts.length === 0) {
+			$wrap.html(`
+				<div class="wqo-empty-state">
+					<i class="fa fa-university" style="font-size: 2rem; margin-bottom: 8px; display: block; opacity: 0.5;"></i>
+					${__("No bank ledger accounts found for this company.")}
+				</div>
+			`);
+			return;
+		}
+
+		const currency = data.currency || this.currency || "PKR";
+		const netBalance = data.net_bank_balance || 0;
+		const netClass = netBalance >= 0 ? "positive" : "negative";
+
+		let accountsHtml = "";
+		data.bank_accounts.forEach((b) => {
+			const isPositive = b.current_balance >= 0;
+			const balClass = isPositive ? "wqo-bal-positive" : "wqo-bal-negative";
+			const shareWidth = Math.min(Math.max(b.share_pct || 0, 0), 100);
+			const subLabel = b.bank_account_no ? `${b.account} • ${b.bank_account_no}` : b.account;
+
+			accountsHtml += `
+				<div class="wqo-bank-item">
+					<div class="wqo-bank-item-info">
+						<div class="wqo-bank-icon"><i class="fa fa-university"></i></div>
+						<div class="wqo-bank-details">
+							<a href="/app/general-ledger?account=${encodeURIComponent(b.account)}" class="wqo-bank-name" title="${frappe.utils.escape_html(b.bank_name)}">
+								${frappe.utils.escape_html(b.bank_name)}
+							</a>
+							<span class="wqo-bank-sub">${frappe.utils.escape_html(subLabel)}</span>
+						</div>
+					</div>
+					<div class="wqo-bank-item-balance">
+						<span class="wqo-bank-amount ${balClass}">
+							${format_currency(b.current_balance, b.account_currency || currency, 0)}
+						</span>
+						<div class="wqo-bank-share-wrap" title="${__("Share of liquid funds: {0}%", [b.share_pct])}">
+							<div class="wqo-bank-share-bar" style="width: ${shareWidth}%;"></div>
+							<span class="wqo-bank-share-text">${b.share_pct}%</span>
+						</div>
+					</div>
+				</div>
+			`;
+		});
+
+		$wrap.html(`
+			<div class="wqo-bank-balances-container">
+				<div class="wqo-bank-net-banner ${netClass}">
+					<div class="wqo-net-banner-text">
+						<span class="wqo-net-banner-label">${__("Total Liquid Bank Balance")}</span>
+						<span class="wqo-net-banner-val">${format_currency(netBalance, currency, 0)}</span>
+					</div>
+					<span class="wqo-net-banner-count">${__("{0} Bank Ledgers", [data.bank_accounts.length])}</span>
+				</div>
+				<div class="wqo-bank-list">
+					${accountsHtml}
+				</div>
+			</div>
+		`);
+	}
+
+	render_bank_reconciliation(data) {
+		const $wrap = $("#wqo-bank-reconciliation-wrap");
+		if (!data || !data.reconciliation) {
+			$wrap.html(`
+				<div class="wqo-empty-state">
+					<i class="fa fa-check-circle-o" style="font-size: 2rem; margin-bottom: 8px; display: block; opacity: 0.5;"></i>
+					${__("No reconciliation data available.")}
+				</div>
+			`);
+			return;
+		}
+
+		const recon = data.reconciliation;
+		const currency = data.currency || this.currency || "PKR";
+		const rate = flt(recon.reconciliation_rate || 0, 1);
+
+		let statusLabel = __("Fully Cleared");
+		let statusColor = "var(--wqo-success)";
+		let statusClass = "positive";
+		if (rate < 50) {
+			statusLabel = __("Action Required");
+			statusColor = "var(--wqo-danger)";
+			statusClass = "negative";
+		} else if (rate < 90) {
+			statusLabel = __("Partially Cleared");
+			statusColor = "var(--wqo-warning)";
+			statusClass = "warning";
+		}
+
+		let btHtml = "";
+		if (recon.bank_transactions && recon.bank_transactions.length > 0) {
+			let btBadges = recon.bank_transactions.map(bt => `
+				<span class="wqo-recon-bt-tag ${(bt.status || "").toLowerCase()}">
+					${frappe.utils.escape_html(bt.status)}: <strong>${bt.count}</strong>
+				</span>
+			`).join("");
+			btHtml = `
+				<div class="wqo-recon-bt-section">
+					<span class="wqo-recon-bt-title">${__("Statement Transactions:")}</span>
+					<div class="wqo-recon-bt-tags">${btBadges}</div>
+				</div>
+			`;
+		}
+
+		$wrap.html(`
+			<div class="wqo-recon-container">
+				<!-- Clearance Rate Meter -->
+				<div class="wqo-recon-meter-header">
+					<div class="wqo-recon-rate-block">
+						<span class="wqo-recon-rate-num" style="color: ${statusColor};">${rate}%</span>
+						<span class="wqo-trend-pill ${statusClass}">${statusLabel}</span>
+					</div>
+					<div class="wqo-recon-meta">
+						<span>${__("{0} of {1} Vouchers Cleared", [recon.cleared_vouchers, recon.total_vouchers])}</span>
+					</div>
+				</div>
+				<div class="wqo-recon-meter-track">
+					<div class="wqo-recon-meter-fill" style="width: ${rate}%; background-color: ${statusColor};"></div>
+				</div>
+
+				<!-- Clearance Metrics Grid -->
+				<div class="wqo-recon-metrics-grid">
+					<div class="wqo-recon-metric-card">
+						<span class="wqo-metric-label"><i class="fa fa-check text-success"></i> ${__("Cleared Vouchers")}</span>
+						<span class="wqo-metric-val text-success">${recon.cleared_vouchers}</span>
+					</div>
+					<div class="wqo-recon-metric-card">
+						<span class="wqo-metric-label"><i class="fa fa-clock-o text-warning"></i> ${__("Uncleared Vouchers")}</span>
+						<span class="wqo-metric-val text-warning">${recon.uncleared_vouchers}</span>
+					</div>
+					<div class="wqo-recon-metric-card">
+						<span class="wqo-metric-label"><i class="fa fa-arrow-down text-info"></i> ${__("Uncleared Receipts (In Transit)")}</span>
+						<span class="wqo-metric-val">${format_currency(recon.uncleared_receipts, currency, 0)}</span>
+					</div>
+					<div class="wqo-recon-metric-card">
+						<span class="wqo-metric-label"><i class="fa fa-arrow-up text-danger"></i> ${__("Uncleared Payments (Unpresented)")}</span>
+						<span class="wqo-metric-val">${format_currency(recon.uncleared_payments, currency, 0)}</span>
+					</div>
+				</div>
+
+				${btHtml}
+
+				<div class="wqo-recon-footer-action">
+					<a href="/app/bank-reconciliation-tool" class="btn btn-xs btn-default wqo-recon-btn">
+						<i class="fa fa-external-link"></i> ${__("Open Bank Reconciliation Tool")}
+					</a>
+				</div>
+			</div>
+		`);
+	}
+
+	render_bank_opening_closing(data) {
+		const $wrap = $("#wqo-bank-opening-closing-wrap");
+		if (data && data.month_label) {
+			$("#wqo-bank-month-badge").text(data.month_label);
+		}
+
+		if (!data || !data.opening_closing_summary || data.opening_closing_summary.length === 0) {
+			$wrap.html(`
+				<div class="wqo-empty-state">
+					<i class="fa fa-calendar-o" style="font-size: 2rem; margin-bottom: 8px; display: block; opacity: 0.5;"></i>
+					${__("No monthly bank ledger data found for this company.")}
+				</div>
+			`);
+			return;
+		}
+
+		let rowsHtml = "";
+		data.opening_closing_summary.forEach((row) => {
+			const netIsPos = row.net_change >= 0;
+			const netClass = netIsPos ? "positive" : "negative";
+			const netSign = netIsPos ? "+" : "";
+
+			rowsHtml += `
+				<tr>
+					<td>
+						<a href="/app/general-ledger?account=${encodeURIComponent(row.account)}" class="wqo-project-name-cell" title="${frappe.utils.escape_html(row.account_name)}">
+							${frappe.utils.escape_html(row.account_name)}
+						</a>
+						<span class="wqo-project-sub">${frappe.utils.escape_html(row.account)}</span>
+					</td>
+					<td>${format_currency(row.opening_balance, row.currency, 0)}</td>
+					<td style="color: var(--wqo-success); font-weight: 500;">
+						+${format_currency(row.receipts, row.currency, 0)}
+					</td>
+					<td style="color: var(--wqo-danger); font-weight: 500;">
+						-${format_currency(row.payments, row.currency, 0)}
+					</td>
+					<td>
+						<span class="wqo-trend-pill ${netClass}">
+							${netSign}${format_currency(row.net_change, row.currency, 0)}
+						</span>
+					</td>
+					<td style="font-weight: 700;">
+						${format_currency(row.closing_balance, row.currency, 0)}
+					</td>
+				</tr>
+			`;
+		});
+
+		// Totals row
+		const totals = data.totals || {};
+		const totalNetIsPos = (totals.net_change || 0) >= 0;
+		const totalNetClass = totalNetIsPos ? "positive" : "negative";
+		const totalNetSign = totalNetIsPos ? "+" : "";
+		const currency = this.currency || "PKR";
+
+		const footerHtml = `
+			<tr class="wqo-table-totals-row">
+				<td><strong>${__("Total")}</strong></td>
+				<td><strong>${format_currency(totals.total_opening, currency, 0)}</strong></td>
+				<td style="color: var(--wqo-success); font-weight: 700;">+${format_currency(totals.total_receipts, currency, 0)}</td>
+				<td style="color: var(--wqo-danger); font-weight: 700;">-${format_currency(totals.total_payments, currency, 0)}</td>
+				<td>
+					<span class="wqo-trend-pill ${totalNetClass}">
+						${totalNetSign}${format_currency(totals.net_change, currency, 0)}
+					</span>
+				</td>
+				<td><strong>${format_currency(totals.total_closing, currency, 0)}</strong></td>
+			</tr>
+		`;
+
+		$wrap.html(`
+			<div class="wqo-table-container">
+				<table class="wqo-portfolio-table wqo-bank-table">
+					<thead>
+						<tr>
+							<th>${__("Bank Ledger")}</th>
+							<th>${__("Opening Balance")}</th>
+							<th>${__("Receipts (+)")}</th>
+							<th>${__("Payments (-)")}</th>
+							<th>${__("Net Change")}</th>
+							<th>${__("Closing Balance")}</th>
+						</tr>
+					</thead>
+					<tbody>
+						${rowsHtml}
+					</tbody>
+					<tfoot>
+						${footerHtml}
+					</tfoot>
+				</table>
+			</div>
+		`);
+	}
+
+	render_bank_payment_receipt_summary(data) {
+		if (data && data.month_label) {
+			$("#wqo-bank-summary-badge").text(data.month_label);
+		}
+
+		const chartEl = $("#wqo-bank-payment-receipt-chart");
+		chartEl.empty();
+
+		if (!data || !data.payment_receipt_chart || !data.payment_receipt_chart.labels || data.payment_receipt_chart.labels.length === 0) {
+			chartEl.html(`
+				<div class="wqo-empty-state">
+					<i class="fa fa-bar-chart" style="font-size: 2rem; margin-bottom: 8px; display: block; opacity: 0.5;"></i>
+					${__("No payment or receipt transactions in this period.")}
+				</div>
+			`);
+			$("#wqo-bank-payment-receipt-totals").empty();
+			return;
+		}
+
+		const chartData = data.payment_receipt_chart;
+		this.charts.bank_payment_receipt = new frappe.Chart("#wqo-bank-payment-receipt-chart", {
+			title: "",
+			type: "bar",
+			height: 200,
+			data: {
+				labels: chartData.labels,
+				datasets: chartData.datasets,
+			},
+			colors: ["#10b981", "#ef4444"],
+			axisOptions: {
+				xIsSeries: 1,
+				shortenYAxisNumbers: 1,
+			},
+			barOptions: {
+				spaceRatio: 0.35,
+			},
+			tooltipOptions: {
+				formatTooltipY: (d) => format_currency(d, this.currency, 0),
+			},
+		});
+
+		// Totals Pills
+		const totals = data.totals || {};
+		const netIsPos = (totals.net_change || 0) >= 0;
+		const netClass = netIsPos ? "positive" : "negative";
+		const netSign = netIsPos ? "+" : "";
+		const currency = this.currency || "PKR";
+
+		$("#wqo-bank-payment-receipt-totals").html(`
+			<div class="wqo-bank-total-pill">
+				<span class="wqo-bt-label"><i class="fa fa-arrow-circle-down text-success"></i> ${__("Total Inflow (Receipts)")}</span>
+				<span class="wqo-bt-val text-success">${format_currency(totals.total_receipts, currency, 0)}</span>
+			</div>
+			<div class="wqo-bank-total-pill">
+				<span class="wqo-bt-label"><i class="fa fa-arrow-circle-up text-danger"></i> ${__("Total Outflow (Payments)")}</span>
+				<span class="wqo-bt-val text-danger">${format_currency(totals.total_payments, currency, 0)}</span>
+			</div>
+			<div class="wqo-bank-total-pill">
+				<span class="wqo-bt-label"><i class="fa fa-exchange"></i> ${__("Net Cash Flow")}</span>
+				<span class="wqo-bt-val ${netClass}">${netSign}${format_currency(totals.net_change, currency, 0)}</span>
 			</div>
 		`);
 	}
