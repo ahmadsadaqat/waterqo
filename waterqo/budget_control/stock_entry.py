@@ -3,8 +3,48 @@ from frappe import _
 from frappe.utils import flt, fmt_money, now_datetime
 from waterqo.budget_control.utils import recalculate_project_budget, recalculate_task_budget
 
+@frappe.whitelist()
+def get_material_request_employee(material_request):
+	"""Fetches the linked Employee name from the Material Request's creator/user."""
+	if not material_request:
+		return None
+
+	mr_owner = frappe.db.get_value("Material Request", material_request, "owner")
+	if not mr_owner:
+		return None
+
+	emp = frappe.db.get_value("Employee", {"user_id": mr_owner, "status": "Active"}, "name")
+	if not emp:
+		emp = frappe.db.get_value("Employee", {"user_id": mr_owner}, "name")
+	if not emp:
+		emp = frappe.db.get_value("Employee", {"company_email": mr_owner}, "name")
+	if not emp:
+		emp = frappe.db.get_value("Employee", {"personal_email": mr_owner}, "name")
+
+	return emp
+
+
+def set_material_request_employee_if_empty(doc):
+	"""Auto-populates custom_material_issue_request from linked Material Request owner if not set."""
+	if getattr(doc, "custom_material_issue_request", None):
+		return
+
+	if not getattr(doc, "items", None):
+		return
+
+	for item in doc.items:
+		mr = getattr(item, "material_request", None)
+		if mr:
+			emp = get_material_request_employee(mr)
+			if emp:
+				doc.custom_material_issue_request = emp
+				break
+
+
 def validate_stock_entry(doc, method=None):
 	"""Auto-populates Project from Task, validates Project-Task consistency, and checks budget limits."""
+	set_material_request_employee_if_empty(doc)
+
 	# Populate header task/project to items if missing
 	for item in doc.items:
 		if not item.task and doc.task:

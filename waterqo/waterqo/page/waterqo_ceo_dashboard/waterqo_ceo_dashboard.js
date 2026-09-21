@@ -82,19 +82,36 @@ class WaterqoCEODashboard {
 
 	get_attendance_url() {
 		const company = this.get_company() || "";
-		const now = new Date();
-		const currentMonth = now.getMonth() + 1;
-		const currentYear = now.getFullYear();
+		const hasAttendance =
+			typeof frappe !== "undefined" &&
+			frappe.boot &&
+			frappe.boot.user &&
+			frappe.boot.user.can_read &&
+			frappe.boot.user.can_read.includes("Attendance");
 
+		if (hasAttendance) {
+			const now = new Date();
+			const currentMonth = now.getMonth() + 1;
+			const currentYear = now.getFullYear();
+
+			const params = new URLSearchParams();
+			if (company) {
+				params.set("company", company);
+			}
+			params.set("filter_based_on", "Month");
+			params.set("month", currentMonth);
+			params.set("year", currentYear);
+
+			return `/app/query-report/Monthly%20Attendance%20Sheet?${params.toString()}`;
+		}
+
+		// Fallback when HRMS / Attendance is not installed on the site
 		const params = new URLSearchParams();
 		if (company) {
 			params.set("company", company);
 		}
-		params.set("filter_based_on", "Month");
-		params.set("month", currentMonth);
-		params.set("year", currentYear);
-
-		return `/app/query-report/Monthly%20Attendance%20Sheet?${params.toString()}`;
+		params.set("status", "Active");
+		return `/app/employee?${params.toString()}`;
 	}
 
 	render_skeleton() {

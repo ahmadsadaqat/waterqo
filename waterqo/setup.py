@@ -127,6 +127,27 @@ def setup_custom_fields():
 		],
 		"Stock Entry": [
 			{
+				"fieldname": "custom_doc_reference",
+				"fieldtype": "Data",
+				"label": "Doc Reference",
+				"insert_after": "inspection_required",
+			},
+			{
+				"fieldname": "custom_zone_incharge",
+				"fieldtype": "Link",
+				"options": "Employee",
+				"label": "Zone Incharge",
+				"insert_after": "custom_doc_reference",
+			},
+			{
+				"fieldname": "custom_material_issue_request",
+				"fieldtype": "Link",
+				"options": "Employee",
+				"label": "Material Issue Request",
+				"insert_after": "custom_zone_incharge",
+				"description": "Employee who requested the material issue (auto-fetched from Material Request user)",
+			},
+			{
 				"fieldname": "custom_budget_control_section",
 				"fieldtype": "Section Break",
 				"label": "Budget Control",
