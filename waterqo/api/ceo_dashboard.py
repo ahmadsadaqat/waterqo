@@ -188,7 +188,7 @@ def get_executive_kpis(company=None):
 
 
 @frappe.whitelist()
-def get_project_portfolio_status(company=None):
+def get_project_portfolio_status(company=None, limit=100):
 	"""
 	Fetch top active projects with:
 	- name, project_name, percent_complete, status, expected_end_date
@@ -196,6 +196,7 @@ def get_project_portfolio_status(company=None):
 	"""
 	_check_dashboard_permissions()
 	comp = _get_active_company(company)
+	max_limit = cint(limit) if limit else 100
 
 	projects = frappe.db.sql(
 		"""
@@ -212,9 +213,9 @@ def get_project_portfolio_status(company=None):
 		  AND p.docstatus < 2
 		  AND (%(company)s IS NULL OR p.company = %(company)s)
 		ORDER BY p.creation DESC
-		LIMIT 15
+		LIMIT %(limit)s
 	""",
-		{"company": comp},
+		{"company": comp, "limit": max_limit},
 		as_dict=True,
 	)
 

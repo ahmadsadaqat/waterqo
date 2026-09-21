@@ -10,6 +10,13 @@ frappe.pages["waterqo-ceo-dashboard"].on_page_load = function (wrapper) {
 
 	wrapper.ceo_dashboard = new WaterqoCEODashboard(wrapper, page);
 	frappe.breadcrumbs.add("Projects");
+
+	$(wrapper).on("destroy", function () {
+		if (wrapper.ceo_dashboard && wrapper.ceo_dashboard.chartsStackObserver) {
+			wrapper.ceo_dashboard.chartsStackObserver.disconnect();
+		}
+		$(window).off("resize.wqo_ceo_dashboard");
+	});
 };
 
 class WaterqoCEODashboard {
@@ -50,6 +57,44 @@ class WaterqoCEODashboard {
 
 	get_company() {
 		return this.company_field ? this.company_field.get_value() : null;
+	}
+
+	get_general_ledger_url(account = null) {
+		const company = this.get_company() || "";
+		const to_date = (typeof frappe !== "undefined" && frappe.datetime) ? frappe.datetime.get_today() : new Date().toISOString().slice(0, 10);
+		const from_date = (typeof frappe !== "undefined" && frappe.datetime) ? frappe.datetime.add_months(to_date, -1) : new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+
+		const params = new URLSearchParams();
+		if (company) {
+			params.set("company", company);
+		}
+		params.set("from_date", from_date);
+		params.set("to_date", to_date);
+		if (account) {
+			params.set("account", JSON.stringify([account]));
+		}
+		params.set("categorize_by", "Categorize by Voucher (Consolidated)");
+		params.set("include_dimensions", "1");
+		params.set("include_default_book_entries", "1");
+
+		return `/app/query-report/General%20Ledger?${params.toString()}`;
+	}
+
+	get_attendance_url() {
+		const company = this.get_company() || "";
+		const now = new Date();
+		const currentMonth = now.getMonth() + 1;
+		const currentYear = now.getFullYear();
+
+		const params = new URLSearchParams();
+		if (company) {
+			params.set("company", company);
+		}
+		params.set("filter_based_on", "Month");
+		params.set("month", currentMonth);
+		params.set("year", currentYear);
+
+		return `/app/query-report/Monthly%20Attendance%20Sheet?${params.toString()}`;
 	}
 
 	render_skeleton() {
@@ -145,7 +190,7 @@ class WaterqoCEODashboard {
 				<!-- Middle Section: Portfolio + Financial Trends -->
 				<div class="wqo-middle-grid">
 					<!-- Project Portfolio Table Card -->
-					<div class="wqo-card">
+					<div class="wqo-card wqo-portfolio-card">
 						<div class="wqo-card-header">
 							<h3 class="wqo-card-title">
 								<i class="fa fa-cubes" style="color: var(--wqo-primary);"></i>
@@ -213,7 +258,7 @@ class WaterqoCEODashboard {
 								<i class="fa fa-money" style="color: #10b981;"></i>
 								${__("Bank-wise Current Balance")}
 							</h3>
-							<a href="/app/general-ledger" class="wqo-card-action">${__("General Ledger")} &rarr;</a>
+							<a href="${this.get_general_ledger_url()}" id="wqo-gl-card-action" class="wqo-card-action">${__("General Ledger")} &rarr;</a>
 						</div>
 						<div id="wqo-bank-balances-wrap" class="wqo-bank-content-wrap">
 							<div class="wqo-skeleton wqo-skeleton-chart" style="height: 240px;"></div>
@@ -227,7 +272,7 @@ class WaterqoCEODashboard {
 								<i class="fa fa-check-square-o" style="color: #3b82f6;"></i>
 								${__("Bank Reconciliation Status")}
 							</h3>
-							<a href="/app/bank-reconciliation-statement" class="wqo-card-action">${__("Statement")} &rarr;</a>
+							<a href="/app/query-report/Bank%20Reconciliation%20Statement" class="wqo-card-action">${__("Statement")} &rarr;</a>
 						</div>
 						<div id="wqo-bank-reconciliation-wrap" class="wqo-bank-content-wrap">
 							<div class="wqo-skeleton wqo-skeleton-chart" style="height: 240px;"></div>
@@ -290,7 +335,7 @@ class WaterqoCEODashboard {
 								<i class="fa fa-users" style="color: var(--wqo-success);"></i>
 								${__("Workforce & Attendance Snapshot")}
 							</h3>
-							<a href="/app/attendance" class="wqo-card-action">${__("View Attendance")} &rarr;</a>
+							<a href="${this.get_attendance_url()}" id="wqo-attendance-card-action" class="wqo-card-action">${__("View Attendance")} &rarr;</a>
 						</div>
 						<div id="wqo-hrms-wrap">
 							<div class="wqo-skeleton wqo-skeleton-chart" style="height: 220px;"></div>
@@ -299,11 +344,15 @@ class WaterqoCEODashboard {
 				</div>
 			</div>
 		`);
+		this.setup_resize_observer();
 	}
 
 	refresh() {
 		const company = this.get_company();
 		const me = this;
+
+		this.body.find("#wqo-gl-card-action").attr("href", this.get_general_ledger_url());
+		this.body.find("#wqo-attendance-card-action").attr("href", this.get_attendance_url());
 
 		// Fetch all 4 APIs in parallel
 		frappe.xcall("waterqo.api.ceo_dashboard.get_executive_kpis", { company: company })
@@ -314,7 +363,7 @@ class WaterqoCEODashboard {
 				console.error("Error loading CEO dashboard KPIs:", err);
 			});
 
-		frappe.xcall("waterqo.api.ceo_dashboard.get_project_portfolio_status", { company: company })
+		frappe.xcall("waterqo.api.ceo_dashboard.get_project_portfolio_status", { company: company, limit: 100 })
 			.then((data) => {
 				me.render_portfolio_table(data);
 			})
@@ -482,6 +531,7 @@ class WaterqoCEODashboard {
 				</tbody>
 			</table>
 		`);
+		this.sync_portfolio_card_height();
 	}
 
 	render_financial_charts(data) {
@@ -536,6 +586,48 @@ class WaterqoCEODashboard {
 					formatTooltipY: (d) => format_currency(d, this.currency, 0),
 				},
 			});
+		}
+
+		this.sync_portfolio_card_height();
+		setTimeout(() => {
+			this.sync_portfolio_card_height();
+		}, 150);
+	}
+
+	setup_resize_observer() {
+		const me = this;
+		if (window.ResizeObserver) {
+			const stackEl = this.body.find(".wqo-charts-stack")[0];
+			if (stackEl) {
+				if (this.chartsStackObserver) {
+					this.chartsStackObserver.disconnect();
+				}
+				this.chartsStackObserver = new ResizeObserver(() => {
+					me.sync_portfolio_card_height();
+				});
+				this.chartsStackObserver.observe(stackEl);
+			}
+		}
+
+		$(window).off("resize.wqo_ceo_dashboard").on("resize.wqo_ceo_dashboard", () => {
+			me.sync_portfolio_card_height();
+		});
+	}
+
+	sync_portfolio_card_height() {
+		const $portfolioCard = this.body.find(".wqo-portfolio-card");
+		const $chartsStack = this.body.find(".wqo-charts-stack");
+		const $tableWrap = this.body.find("#wqo-portfolio-table-wrap");
+
+		if (!$portfolioCard.length || !$chartsStack.length || !$tableWrap.length) return;
+
+		const stackHeight = Math.round($chartsStack.outerHeight());
+		if (stackHeight > 300) {
+			const headerHeight = $portfolioCard.find(".wqo-card-header").outerHeight(true) || 50;
+			const cardPadding = 38; // 18px top + 18px bottom + 2px border
+			const availableHeight = stackHeight - headerHeight - cardPadding - 4;
+			const tableHeight = Math.max(availableHeight, 350);
+			$tableWrap.css("max-height", tableHeight + "px");
 		}
 	}
 
@@ -630,13 +722,14 @@ class WaterqoCEODashboard {
 			const balClass = isPositive ? "wqo-bal-positive" : "wqo-bal-negative";
 			const shareWidth = Math.min(Math.max(b.share_pct || 0, 0), 100);
 			const subLabel = b.bank_account_no ? `${b.account} • ${b.bank_account_no}` : b.account;
+			const glUrl = this.get_general_ledger_url(b.account);
 
 			accountsHtml += `
 				<div class="wqo-bank-item">
 					<div class="wqo-bank-item-info">
 						<div class="wqo-bank-icon"><i class="fa fa-university"></i></div>
 						<div class="wqo-bank-details">
-							<a href="/app/general-ledger?account=${encodeURIComponent(b.account)}" class="wqo-bank-name" title="${frappe.utils.escape_html(b.bank_name)}">
+							<a href="${glUrl}" class="wqo-bank-name" title="${frappe.utils.escape_html(b.bank_name)}">
 								${frappe.utils.escape_html(b.bank_name)}
 							</a>
 							<span class="wqo-bank-sub">${frappe.utils.escape_html(subLabel)}</span>
@@ -783,11 +876,12 @@ class WaterqoCEODashboard {
 			const netIsPos = row.net_change >= 0;
 			const netClass = netIsPos ? "positive" : "negative";
 			const netSign = netIsPos ? "+" : "";
+			const glUrl = this.get_general_ledger_url(row.account);
 
 			rowsHtml += `
 				<tr>
 					<td>
-						<a href="/app/general-ledger?account=${encodeURIComponent(row.account)}" class="wqo-project-name-cell" title="${frappe.utils.escape_html(row.account_name)}">
+						<a href="${glUrl}" class="wqo-project-name-cell" title="${frappe.utils.escape_html(row.account_name)}">
 							${frappe.utils.escape_html(row.account_name)}
 						</a>
 						<span class="wqo-project-sub">${frappe.utils.escape_html(row.account)}</span>
