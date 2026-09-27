@@ -235,25 +235,9 @@ def get_project_portfolio_status(company=None, limit=100):
 		)
 		billed_revenue = flt(si_res[0][0]) if si_res else 0.0
 
-		# Actual Cost from GL Entry (Stock Entry Material Issue + Journal Entry + Purchase Invoice)
-		gle_res = frappe.db.sql(
-			"""
-			SELECT COALESCE(SUM(gle.debit - gle.credit), 0)
-			FROM `tabGL Entry` gle
-			LEFT JOIN `tabStock Entry` se ON se.name = gle.voucher_no AND gle.voucher_type = 'Stock Entry'
-			WHERE gle.docstatus = 1
-			  AND gle.is_cancelled = 0
-			  AND gle.debit > 0
-			  AND gle.project = %s
-			  AND (
-				  (gle.voucher_type = 'Stock Entry' AND se.purpose = 'Material Issue')
-				  OR (gle.voucher_type = 'Journal Entry')
-				  OR (gle.voucher_type = 'Purchase Invoice')
-			  )
-		""",
-			(proj_id,),
-		)
-		actual_cost_gle = flt(gle_res[0][0]) if gle_res else 0.0
+		# Actual Cost from Opening Expense and qualifying transactions (Material Issue, Journal Entry, Payment Entry, Purchase Invoice, etc.)
+		from waterqo.budget_control.utils import get_project_actual_cost
+		actual_cost_gle = get_project_actual_cost(proj_id)
 
 		# Direct Purchase Invoice + Stock Entry calculation fallback / supplement
 		pi_res = frappe.db.sql(

@@ -163,7 +163,11 @@ def validate_project(doc, method=None):
 			title=_("Project Budget Violation"),
 		)
 
-	actual_cost = get_project_actual_cost(doc.name) if doc.name else 0.0
+	actual_cost = (
+		get_project_actual_cost(doc.name, opening_expense=flt(doc.custom_opening_expense))
+		if doc.name
+		else flt(doc.custom_opening_expense)
+	)
 	unallocated = project_budget - total_task_budget
 	remaining = project_budget - actual_cost
 	utilization = (actual_cost / project_budget * 100.0) if project_budget > 0 else 0.0

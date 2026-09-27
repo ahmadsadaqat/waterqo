@@ -19,7 +19,7 @@ def setup_custom_fields():
 				"fieldname": "custom_opening_expense",
 				"fieldtype": "Currency",
 				"label": "Opening Expense",
-				"insert_after": "total_expense_claim",
+				"insert_after": "estimated_costing",
 				"description": "Opening expense for reporting purposes",
 			},
 			{
@@ -62,7 +62,7 @@ def setup_custom_fields():
 				"label": "Actual Project Cost",
 				"read_only": 1,
 				"insert_after": "custom_column_break_budget",
-				"description": "Actual cost incurred from Material Issue transactions",
+				"description": "Total actual cost incurred including opening expenses, Material Issue, Payment Entry, and qualifying transactions",
 			},
 			{
 				"fieldname": "custom_remaining_project_budget",

@@ -1,28 +1,40 @@
 import frappe
 from frappe.utils import flt
 
-def get_project_actual_cost(project_name: str) -> float:
-	"""Calculates total actual cost for a Project from qualifying Material Issue and Journal Entry GL Entries."""
+def get_project_actual_cost(project_name: str, opening_expense: float | None = None) -> float:
+	"""Calculates total actual cost for a Project from opening expenses and qualifying GL Entries (Material Issue, Journal Entry, Payment Entry, Purchase Invoice, Expense Claim, etc.)."""
 	if not project_name:
-		return 0.0
+		return flt(opening_expense) if opening_expense is not None else 0.0
+
+	if opening_expense is None:
+		opening_expense = flt(frappe.db.get_value("Project", project_name, "custom_opening_expense") or 0.0)
+	else:
+		opening_expense = flt(opening_expense)
 
 	res = frappe.db.sql(
 		"""
 		SELECT SUM(gle.debit - gle.credit)
 		FROM `tabGL Entry` gle
 		LEFT JOIN `tabStock Entry` se ON se.name = gle.voucher_no AND gle.voucher_type = 'Stock Entry'
+		LEFT JOIN `tabPayment Entry` pe ON pe.name = gle.voucher_no AND gle.voucher_type = 'Payment Entry'
 		WHERE gle.docstatus = 1
 		  AND gle.is_cancelled = 0
 		  AND gle.debit > 0
-		  AND gle.project = %s
+		  AND gle.project = %(project)s
 		  AND (
 			  (gle.voucher_type = 'Stock Entry' AND se.purpose = 'Material Issue')
 			  OR (gle.voucher_type = 'Journal Entry')
+			  OR (gle.voucher_type = 'Payment Entry' AND (pe.payment_type IS NULL OR pe.payment_type = 'Pay'))
+			  OR (gle.voucher_type = 'Purchase Invoice')
+			  OR (gle.voucher_type = 'Expense Claim')
+			  OR (gle.voucher_type = 'Purchase Receipt')
+			  OR (gle.voucher_type = 'Salary Slip')
 		  )
 	""",
-		(project_name,),
+		{"project": project_name},
 	)
-	return flt(res[0][0]) if res and res[0][0] is not None else 0.0
+	gl_cost = flt(res[0][0]) if res and res[0][0] is not None else 0.0
+	return flt(opening_expense + gl_cost, 2)
 
 def get_all_child_tasks(task_name: str, excluding_task: str | None = None) -> list[str]:
 	"""Recursively fetches all child task names under a parent task."""
@@ -43,7 +55,7 @@ def get_all_child_tasks(task_name: str, excluding_task: str | None = None) -> li
 	return all_children
 
 def get_task_actual_cost(task_name: str, excluding_task: str | None = None) -> float:
-	"""Calculates total actual cost for a Task (including its sub-tasks if parent) from qualifying Material Issue and Journal Entry GL Entries."""
+	"""Calculates total actual cost for a Task (including its sub-tasks if parent) from qualifying GL Entries."""
 	if not task_name:
 		return 0.0
 
@@ -59,16 +71,22 @@ def get_task_actual_cost(task_name: str, excluding_task: str | None = None) -> f
 		SELECT SUM(gle.debit - gle.credit)
 		FROM `tabGL Entry` gle
 		LEFT JOIN `tabStock Entry` se ON se.name = gle.voucher_no AND gle.voucher_type = 'Stock Entry'
+		LEFT JOIN `tabPayment Entry` pe ON pe.name = gle.voucher_no AND gle.voucher_type = 'Payment Entry'
 		WHERE gle.docstatus = 1
 		  AND gle.is_cancelled = 0
 		  AND gle.debit > 0
-		  AND gle.task IN %s
+		  AND gle.task IN %(tasks)s
 		  AND (
 			  (gle.voucher_type = 'Stock Entry' AND se.purpose = 'Material Issue')
 			  OR (gle.voucher_type = 'Journal Entry')
+			  OR (gle.voucher_type = 'Payment Entry' AND (pe.payment_type IS NULL OR pe.payment_type = 'Pay'))
+			  OR (gle.voucher_type = 'Purchase Invoice')
+			  OR (gle.voucher_type = 'Expense Claim')
+			  OR (gle.voucher_type = 'Purchase Receipt')
+			  OR (gle.voucher_type = 'Salary Slip')
 		  )
 	""",
-		(tuple(all_task_names),),
+		{"tasks": tuple(all_task_names)},
 	)
 	return flt(res[0][0]) if res and res[0][0] is not None else 0.0
 
@@ -157,7 +175,7 @@ def recalculate_project_budget(project_name: str, excluding_task: str | None = N
 	project_budget = flt(project_doc.custom_project_budget)
 	total_task_budget = get_project_task_allocation(project_name, excluding_task=excluding_task)
 	unallocated_budget = project_budget - total_task_budget
-	actual_project_cost = get_project_actual_cost(project_name)
+	actual_project_cost = get_project_actual_cost(project_name, opening_expense=flt(project_doc.custom_opening_expense))
 	remaining_project_budget = project_budget - actual_project_cost
 	utilization = (actual_project_cost / project_budget * 100.0) if project_budget > 0 else 0.0
 

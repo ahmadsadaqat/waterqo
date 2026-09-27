@@ -166,6 +166,18 @@ doc_events = {
 		"validate": "waterqo.budget_control.journal_entry.validate_journal_entry",
 		"on_submit": "waterqo.budget_control.journal_entry.on_submit_journal_entry",
 		"on_cancel": "waterqo.budget_control.journal_entry.on_cancel_journal_entry"
+	},
+	"Payment Entry": {
+		"on_submit": "waterqo.budget_control.payment_entry.on_submit_payment_entry",
+		"on_cancel": "waterqo.budget_control.payment_entry.on_cancel_payment_entry"
+	},
+	"Purchase Invoice": {
+		"on_submit": "waterqo.budget_control.purchase_invoice.on_submit_purchase_invoice",
+		"on_cancel": "waterqo.budget_control.purchase_invoice.on_cancel_purchase_invoice"
+	},
+	"Expense Claim": {
+		"on_submit": "waterqo.budget_control.expense_claim.on_submit_expense_claim",
+		"on_cancel": "waterqo.budget_control.expense_claim.on_cancel_expense_claim"
 	}
 }
 

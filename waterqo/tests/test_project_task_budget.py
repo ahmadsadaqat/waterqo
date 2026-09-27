@@ -399,4 +399,84 @@ class TestProjectTaskBudgetControl(unittest.TestCase):
 		proj.reload()
 		proj.save(ignore_permissions=True)
 
+	def test_07_opening_expense_and_payment_entry_cost(self):
+		"""42 to 45: Verify custom_opening_expense and Payment Entry (Pay) are included in actual project cost."""
+		proj = frappe.new_doc("Project")
+		proj.project_name = "_Test Costing Proj " + random_string(4)
+		proj.company = self.company
+		proj.custom_project_budget = 500000.0
+		proj.custom_opening_expense = 45000.0
+		proj.insert(ignore_permissions=True)
+
+		self.assertEqual(flt(proj.custom_actual_project_cost), 45000.0)
+		self.assertEqual(flt(proj.custom_remaining_project_budget), 455000.0)
+
+		bank_account = frappe.db.get_value("Company", self.company, "default_bank_account") or frappe.get_all("Account", filters={"company": self.company, "account_type": "Bank"})[0].name
+		suppliers = frappe.get_all("Supplier", limit=1)
+		supplier_name = suppliers[0].name if suppliers else None
+		if not supplier_name:
+			sup = frappe.new_doc("Supplier")
+			sup.supplier_name = "_Test Supplier " + random_string(4)
+			sup.insert(ignore_permissions=True)
+			supplier_name = sup.name
+
+		payable_account = frappe.db.get_value("Company", self.company, "default_payable_account") or frappe.get_all("Account", filters={"company": self.company, "account_type": "Payable"})[0].name
+
+		pe = frappe.new_doc("Payment Entry")
+		pe.payment_type = "Pay"
+		pe.company = self.company
+		pe.posting_date = nowdate()
+		pe.party_type = "Supplier"
+		pe.party = supplier_name
+		pe.paid_from = bank_account
+		pe.paid_to = payable_account
+		pe.paid_amount = 30000.0
+		pe.received_amount = 30000.0
+		pe.reference_no = "REF-TEST-001"
+		pe.reference_date = nowdate()
+		pe.project = proj.name
+		pe.insert(ignore_permissions=True)
+		pe.submit()
+
+		proj.reload()
+		self.assertEqual(flt(proj.custom_actual_project_cost), 75000.0)
+		self.assertEqual(flt(proj.custom_remaining_project_budget), 425000.0)
+
+		pe.cancel()
+		proj.reload()
+		self.assertEqual(flt(proj.custom_actual_project_cost), 45000.0)
+		self.assertEqual(flt(proj.custom_remaining_project_budget), 455000.0)
+
+		# Verify customer receipt (Receive) does not count as cost
+		customers = frappe.get_all("Customer", limit=1)
+		customer_name = customers[0].name if customers else None
+		if not customer_name:
+			cust = frappe.new_doc("Customer")
+			cust.customer_name = "_Test Customer " + random_string(4)
+			cust.insert(ignore_permissions=True)
+			customer_name = cust.name
+
+		receivable_account = frappe.db.get_value("Company", self.company, "default_receivable_account") or frappe.get_all("Account", filters={"company": self.company, "account_type": "Receivable"})[0].name
+
+		pe_rec = frappe.new_doc("Payment Entry")
+		pe_rec.payment_type = "Receive"
+		pe_rec.company = self.company
+		pe_rec.posting_date = nowdate()
+		pe_rec.party_type = "Customer"
+		pe_rec.party = customer_name
+		pe_rec.paid_from = receivable_account
+		pe_rec.paid_to = bank_account
+		pe_rec.paid_amount = 20000.0
+		pe_rec.received_amount = 20000.0
+		pe_rec.reference_no = "REF-REC-001"
+		pe_rec.reference_date = nowdate()
+		pe_rec.project = proj.name
+		pe_rec.insert(ignore_permissions=True)
+		pe_rec.submit()
+
+		proj.reload()
+		self.assertEqual(flt(proj.custom_actual_project_cost), 45000.0)
+		self.assertEqual(flt(proj.custom_remaining_project_budget), 455000.0)
+
+
 
