@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"kpi_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Executive CEO Overview</b></span>\",\"col\":12}},{\"id\":\"ceo_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"CEO Executive Dashboard\",\"col\":3}},{\"id\":\"accounts_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Accounts Dashboard\",\"col\":3}},{\"id\":\"buying_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Buying Dashboard\",\"col\":3}},{\"id\":\"stock_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Dashboard\",\"col\":3}},{\"id\":\"project_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Dashboard\",\"col\":3}},{\"id\":\"payroll_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Payroll Dashboard\",\"col\":3}},{\"id\":\"attendance_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Attendance Dashboard\",\"col\":3}},{\"id\":\"expense_claims_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Expense Claims Dashboard\",\"col\":3}},{\"id\":\"selling_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Selling Dashboard\",\"col\":3}},{\"id\":\"project_expense_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Expense Tracking\",\"col\":3}},{\"id\":\"spacer_reports\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"reports_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports</b></span>\",\"col\":12}},{\"id\":\"financial_statements_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Financial Statements\",\"col\":4}},{\"id\":\"ledgers_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Ledgers\",\"col\":4}},{\"id\":\"reports_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}}]",
+ "content": "[{\"id\":\"kpi_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Executive CEO Overview</b></span>\",\"col\":12}},{\"id\":\"ceo_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"CEO Executive Dashboard\",\"col\":3}},{\"id\":\"accounts_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Accounts Dashboard\",\"col\":3}},{\"id\":\"buying_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Buying Dashboard\",\"col\":3}},{\"id\":\"stock_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Dashboard\",\"col\":3}},{\"id\":\"project_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Dashboard\",\"col\":3}},{\"id\":\"payroll_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Payroll Dashboard\",\"col\":3}},{\"id\":\"attendance_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Attendance Dashboard\",\"col\":3}},{\"id\":\"expense_claims_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Expense Claims Dashboard\",\"col\":3}},{\"id\":\"selling_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Selling Dashboard\",\"col\":3}},{\"id\":\"project_expense_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Expense Tracking\",\"col\":3}},{\"id\":\"project_financial_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Financial & Resource Tracking\",\"col\":3}},{\"id\":\"spacer_reports\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"reports_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports</b></span>\",\"col\":12}},{\"id\":\"financial_statements_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Financial Statements\",\"col\":4}},{\"id\":\"ledgers_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Ledgers\",\"col\":4}},{\"id\":\"reports_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}}]",
  "creation": "2026-09-04 15:49:36.676764",
  "custom_blocks": [],
  "docstatus": 0,
@@ -162,6 +162,17 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Project Financial and Resource Tracking",
+   "link_count": 0,
+   "link_to": "Project Financial and Resource Tracking",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
  "modified": "2026-09-04 16:48:24.912436",
@@ -260,6 +271,15 @@
    "icon": "fa fa-area-chart",
    "label": "Project Expense Tracking",
    "link_to": "Project Expense Tracking",
+   "report_ref_doctype": "Project",
+   "type": "Report"
+  },
+  {
+   "color": "Teal",
+   "doc_view": "",
+   "icon": "fa fa-bar-chart",
+   "label": "Project Financial & Resource Tracking",
+   "link_to": "Project Financial and Resource Tracking",
    "report_ref_doctype": "Project",
    "type": "Report"
   }
