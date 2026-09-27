@@ -594,6 +594,7 @@
 	flex: 1;
 	display: flex;
 	flex-direction: column;
+	min-height: 0;
 }
 
 /* Card 1: Bank-wise Current Balances */
@@ -888,11 +889,55 @@
 }
 
 /* Card 3: Monthly Opening & Closing Table */
-.waterqo-ceo-dashboard .wqo-bank-table tfoot td {
+.waterqo-ceo-dashboard .wqo-bank-table-wrap {
+	max-height: 295px;
+	overflow-y: auto !important;
+	overflow-x: auto !important;
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: thin;
+	scrollbar-color: #94a3b8 rgba(0, 0, 0, 0.05);
+	margin-top: 4px;
+}
+
+/* Custom scrollbar for Monthly Opening & Closing table */
+.waterqo-ceo-dashboard .wqo-bank-table-wrap::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-table-wrap::-webkit-scrollbar-track {
+	background: rgba(0, 0, 0, 0.04);
+	border-radius: 4px;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-table-wrap::-webkit-scrollbar-thumb {
+	background: #94a3b8;
+	border-radius: 4px;
+}
+
+.waterqo-ceo-dashboard .wqo-bank-table-wrap::-webkit-scrollbar-thumb:hover {
+	background: #64748b;
+}
+
+/* Sticky Header so column titles stay visible when scrolling */
+.waterqo-ceo-dashboard .wqo-bank-table-wrap thead th {
+	position: sticky;
+	top: 0;
+	z-index: 3;
+	background: var(--bg-light-gray, var(--wqo-card-bg, #ffffff));
+	box-shadow: inset 0 -1px 0 var(--wqo-border);
+}
+
+/* Sticky Footer so Total row stays visible at bottom while scrolling items */
+.waterqo-ceo-dashboard .wqo-bank-table-wrap tfoot td {
+	position: sticky;
+	bottom: 0;
+	z-index: 3;
 	border-top: 2px solid var(--wqo-border);
-	background: var(--bg-light-gray, rgba(0, 0, 0, 0.03));
-	font-weight: 600;
+	background: var(--bg-light-gray, var(--wqo-card-bg, #ffffff));
+	font-weight: 700;
 	padding: 10px 12px;
+	box-shadow: inset 0 1px 0 var(--wqo-border);
 }
 
 /* Card 4: Payment & Receipt Totals Pills */

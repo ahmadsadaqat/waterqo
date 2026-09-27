@@ -972,7 +972,7 @@ class WaterqoCEODashboard {
 		`;
 
 		$wrap.html(`
-			<div class="wqo-table-container">
+			<div class="wqo-table-container wqo-bank-table-wrap">
 				<table class="wqo-portfolio-table wqo-bank-table">
 					<thead>
 						<tr>
