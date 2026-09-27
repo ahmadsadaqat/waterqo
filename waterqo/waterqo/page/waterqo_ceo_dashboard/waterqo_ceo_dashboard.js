@@ -114,6 +114,19 @@ class WaterqoCEODashboard {
 		return `/app/employee?${params.toString()}`;
 	}
 
+	get_project_financial_report_url(project = null) {
+		const company = this.get_company() || "";
+		const params = new URLSearchParams();
+		if (company) {
+			params.set("company", company);
+		}
+		if (project) {
+			params.set("project", project);
+		}
+		const query = params.toString();
+		return `/app/query-report/Project%20Financial%20and%20Resource%20Tracking${query ? `?${query}` : ""}`;
+	}
+
 	render_skeleton() {
 		this.body.html(`
 			<div class="waterqo-ceo-dashboard">
@@ -213,7 +226,7 @@ class WaterqoCEODashboard {
 								<i class="fa fa-cubes" style="color: var(--wqo-primary);"></i>
 								${__("Project Portfolio Status")}
 							</h3>
-							<a href="/app/project" class="wqo-card-action">${__("View All")} &rarr;</a>
+							<a href="/app/query-report/Project%20Financial%20and%20Resource%20Tracking" class="wqo-card-action">${__("Financial Report")} &rarr;</a>
 						</div>
 						<div class="wqo-table-container" id="wqo-portfolio-table-wrap">
 							<div class="wqo-skeleton wqo-skeleton-chart"></div>
@@ -493,14 +506,15 @@ class WaterqoCEODashboard {
 
 			const progressFillWidth = Math.min(Math.max(p.percent_complete, 0), 100);
 			const utilFillWidth = Math.min(Math.max(p.budget_utilization, 0), 100);
+			const reportUrl = this.get_project_financial_report_url(p.name);
 
 			rowsHtml += `
 				<tr>
 					<td>
-						<a href="/app/project/${encodeURIComponent(p.name)}" class="wqo-project-name-cell" title="${frappe.utils.escape_html(p.project_name)}">
+						<a href="${reportUrl}" class="wqo-project-name-cell" data-project="${frappe.utils.escape_html(p.name)}" title="${frappe.utils.escape_html(p.project_name)} - ${__("Open Financial & Resource Report")}">
 							${frappe.utils.escape_html(p.project_name)}
 						</a>
-						<span class="wqo-project-sub">${frappe.utils.escape_html(p.name)}</span>
+						<a href="${reportUrl}" class="wqo-project-sub" data-project="${frappe.utils.escape_html(p.name)}" style="display: block; cursor: pointer;" title="${frappe.utils.escape_html(p.name)} - ${__("Open Financial & Resource Report")}">${frappe.utils.escape_html(p.name)}</a>
 					</td>
 					<td>
 						<span class="wqo-badge ${statusClass}">${frappe.utils.escape_html(p.status)}</span>
@@ -548,6 +562,19 @@ class WaterqoCEODashboard {
 				</tbody>
 			</table>
 		`);
+
+		const me = this;
+		$wrap.find(".wqo-project-name-cell, .wqo-project-sub").on("click", function (e) {
+			if (e.ctrlKey || e.metaKey || e.which === 2) return;
+			e.preventDefault();
+			const projectName = $(this).data("project");
+			const routeOptions = {};
+			const comp = me.get_company();
+			if (comp) routeOptions.company = comp;
+			if (projectName) routeOptions.project = projectName;
+			frappe.set_route("query-report", "Project Financial and Resource Tracking", routeOptions);
+		});
+
 		this.sync_portfolio_card_height();
 	}
 

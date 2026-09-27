@@ -45,6 +45,20 @@ frappe.query_reports["Project Financial and Resource Tracking"] = {
 			"fieldtype": "Date"
 		}
 	],
+	"onload": function (report) {
+		const route_options = frappe.route_options;
+		if (route_options) {
+			if (route_options.company) {
+				report.set_filter_value("company", route_options.company);
+			}
+			if (route_options.project) {
+				report.set_filter_value("project", route_options.project);
+			}
+			if (route_options.status) {
+				report.set_filter_value("status", route_options.status);
+			}
+		}
+	},
 	"formatter": function (value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
 		if (column.fieldname === "remaining_budget") {

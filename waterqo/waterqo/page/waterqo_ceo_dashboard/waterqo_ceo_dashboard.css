@@ -342,11 +342,19 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	transition: color 0.15s ease;
+}
+
+.waterqo-ceo-dashboard .wqo-project-name-cell:hover,
+.waterqo-ceo-dashboard a.wqo-project-sub:hover {
+	color: var(--wqo-primary);
+	text-decoration: underline;
 }
 
 .waterqo-ceo-dashboard .wqo-project-sub {
 	font-size: 0.75rem;
 	color: var(--wqo-text-muted);
+	transition: color 0.15s ease;
 }
 
 .waterqo-ceo-dashboard .wqo-badge {
