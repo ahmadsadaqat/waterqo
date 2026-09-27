@@ -568,10 +568,15 @@ class WaterqoCEODashboard {
 			if (e.ctrlKey || e.metaKey || e.which === 2) return;
 			e.preventDefault();
 			const projectName = $(this).data("project");
+			const projectTitle = $(this).attr("title") || projectName;
+			if (frappe.utils && frappe.utils.add_link_title && projectName) {
+				frappe.utils.add_link_title("Project", projectName, projectTitle);
+			}
 			const routeOptions = {};
 			const comp = me.get_company();
 			if (comp) routeOptions.company = comp;
 			if (projectName) routeOptions.project = projectName;
+			frappe.route_options = Object.assign({}, routeOptions);
 			frappe.set_route("query-report", "Project Financial and Resource Tracking", routeOptions);
 		});
 
