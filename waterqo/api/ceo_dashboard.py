@@ -737,23 +737,26 @@ def get_bank_monthly_balances_and_summary(company=None, month=None, year=None):
 			},
 		}
 
-	# 1. Opening Balances (posting_date < m_start)
+	# 1. Opening Balances (posting_date < m_start OR is_opening = 'Yes' on or before m_end)
 	opening_sql = """
 		SELECT gle.account, COALESCE(SUM(gle.debit - gle.credit), 0) as opening_balance
 		FROM `tabGL Entry` gle
 		INNER JOIN `tabAccount` acc ON acc.name = gle.account
 		WHERE gle.docstatus = 1 AND gle.is_cancelled = 0
 		  AND acc.account_type = 'Bank' AND acc.is_group = 0
-		  AND gle.posting_date < %(start)s
+		  AND (
+		      gle.posting_date < %(start)s
+		      OR (gle.posting_date <= %(end)s AND gle.is_opening = 'Yes')
+		  )
 		  AND (%(company)s IS NULL OR gle.company = %(company)s)
 		GROUP BY gle.account
 	"""
 	opening_map = {
 		r.account: flt(r.opening_balance, 2)
-		for r in frappe.db.sql(opening_sql, {"start": m_start, "company": comp}, as_dict=True)
+		for r in frappe.db.sql(opening_sql, {"start": m_start, "end": m_end, "company": comp}, as_dict=True)
 	}
 
-	# 2. Monthly Activities (posting_date BETWEEN m_start AND m_end)
+	# 2. Monthly Activities (posting_date BETWEEN m_start AND m_end, excluding opening entries)
 	activity_sql = """
 		SELECT
 			gle.account,
@@ -766,6 +769,7 @@ def get_bank_monthly_balances_and_summary(company=None, month=None, year=None):
 		WHERE gle.docstatus = 1 AND gle.is_cancelled = 0
 		  AND acc.account_type = 'Bank' AND acc.is_group = 0
 		  AND gle.posting_date >= %(start)s AND gle.posting_date <= %(end)s
+		  AND (gle.is_opening IS NULL OR gle.is_opening != 'Yes')
 		  AND (%(company)s IS NULL OR gle.company = %(company)s)
 		GROUP BY gle.account
 	"""

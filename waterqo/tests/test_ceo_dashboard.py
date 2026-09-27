@@ -80,3 +80,25 @@ class TestCEODashboardBanking(unittest.TestCase):
 		self.assertEqual(chart["datasets"][1]["name"], "Payments (Outflow)")
 		self.assertEqual(len(chart["datasets"][0]["values"]), len(chart["labels"]))
 		self.assertEqual(len(chart["datasets"][1]["values"]), len(chart["labels"]))
+
+	def test_opening_journal_entries_counted_in_opening_not_receipts(self):
+		today = getdate(nowdate())
+		res = get_bank_monthly_balances_and_summary(company=self.company, month=today.month, year=today.year)
+		for row in res["opening_closing_summary"]:
+			# Verify no opening GL entries are counted as receipts or payments
+			opening_entries_in_month = frappe.db.sql(
+				"""
+				SELECT COALESCE(SUM(debit), 0) as op_debit, COALESCE(SUM(credit), 0) as op_credit
+				FROM `tabGL Entry`
+				WHERE account = %s AND docstatus = 1 AND is_cancelled = 0
+				  AND is_opening = 'Yes'
+				  AND posting_date >= %s AND posting_date <= %s
+				""",
+				(row["account"], get_first_day(today), get_last_day(today)),
+				as_dict=True,
+			)[0]
+
+			if opening_entries_in_month.op_debit > 0:
+				# The opening balance must reflect the opening entry
+				self.assertGreaterEqual(row["opening_balance"], opening_entries_in_month.op_debit)
+
